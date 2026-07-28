@@ -177,13 +177,18 @@ git branch -D <feature-branch>
 
 ### Step 6: Cleanup Workspace
 
-**Only runs for Options 1 and 4.** Options 2 and 3 always preserve the workspace.
+**Runs for Option 1 and confirmed discards.** Options 2 and 3 always
+preserve the workspace. Both callers have already changed directory to the
+main repo root — worktree removal must run from outside the worktree —
+and use the `GIT_DIR`/`GIT_COMMON`/`WORKTREE_PATH` values captured in
+Step 2, from before that directory change.
 
 **If `GIT_DIR == GIT_COMMON`:** Normal repo, no worktree to clean up. Done.
 
 **If the workspace was created by `invoke_subagent` with `Workspace: "branch"`:** The platform handles cleanup automatically when the subagent terminates. No manual cleanup needed.
 
-**If the workspace was created by manual `git worktree add`:** Clean up with:
+**If `WORKTREE_PATH` is under `.worktrees/` or `worktrees/`:** Superpowers
+created this worktree — we own cleanup:
 
 ```bash
 MAIN_ROOT=$(git -C "$(git rev-parse --git-common-dir)/.." rev-parse --show-toplevel)
@@ -191,6 +196,9 @@ cd "$MAIN_ROOT"
 git worktree remove "$WORKTREE_PATH"
 git worktree prune
 ```
+
+**Otherwise:** The host environment owns this workspace — leave it in
+place. If your platform provides a workspace-exit tool, use it.
 
 
 ## Quick Reference
@@ -226,7 +234,7 @@ git worktree prune
 
 **Cleaning up harness-owned worktrees**
 - **Problem:** Removing a worktree the harness created causes phantom state
-- **Fix:** Only clean up worktrees under `.worktrees/`, `worktrees/`, or `~/.config/superpowers/worktrees/`
+- **Fix:** Only clean up worktrees under `.worktrees/` or `worktrees/`
 
 **No confirmation for discard**
 - **Problem:** Accidentally delete work
