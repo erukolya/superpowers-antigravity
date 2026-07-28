@@ -99,7 +99,7 @@ Beyond the platform port, this fork adds capabilities that don't exist upstream:
                                                                 ┌──────────────────────────┐
                                                                 │   Finish Branch          │
                                                                 │  • Final review          │
-                                                                │  • Merge / PR / Discard  │
+                                                                │  • Merge / PR / Keep     │
                                                                 └──────────────────────────┘
 ```
 
@@ -109,7 +109,7 @@ Beyond the platform port, this fork adds capabilities that don't exist upstream:
 4. **subagent-driven-development** - Fresh subagent per task with two-stage review (spec compliance + code quality)
 5. **test-driven-development** — RED-GREEN-REFACTOR: write failing test → minimal code → pass → commit
 6. **requesting-code-review** — Reviews against plan, reports issues by severity
-7. **finishing-a-development-branch** — Verifies tests, presents merge/PR/keep/discard options
+7. **finishing-a-development-branch** — Verifies tests, presents merge/PR/keep options
 
 **Skills trigger automatically.** Mandatory workflows, not suggestions.
 

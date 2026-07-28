@@ -1,43 +1,31 @@
 ---
 name: finishing-a-development-branch
-description: Use when implementation is complete, all tests pass, and you need to decide how to integrate the work - guides completion of development work by presenting structured options for merge, PR, or cleanup
+description: Use when implementation is complete, all tests pass, and you need to decide how to integrate the work
 ---
 
 # Finishing a Development Branch
 
 ## Overview
 
-Guide completion of development work by presenting clear options and handling chosen workflow.
-
 **Core principle:** Verify tests → Detect environment → Present options → Execute choice → Clean up.
 
 **Announce at start:** "I'm using the finishing-a-development-branch skill to complete this work."
 
-## The Process
+## Step 1: Verify Tests
 
-### Step 1: Verify Tests
+Run the project's full test suite (`npm test` / `cargo test` / `pytest` / `go test ./...`).
 
-**Before presenting options, verify tests pass:**
+**If tests fail**, report the failures and stop — the menu comes after a green suite:
 
-```bash
-# Run project's test suite
-npm test / cargo test / pytest / go test ./...
-```
-
-**If tests fail:**
 ```
 Tests failing (<N> failures). Must fix before completing:
 
 [Show failures]
-
-Cannot proceed with merge/PR until tests pass.
 ```
 
-Stop. Don't proceed to Step 2.
+**If tests pass:** continue to Step 2.
 
-**If tests pass:** Continue to Step 2.
-
-### Step 2: Detect Environment
+## Step 2: Detect Environment
 
 **Determine workspace state before presenting options:**
 
@@ -57,16 +45,14 @@ This determines which menu to show and how cleanup works:
 | `GIT_DIR != GIT_COMMON`, named branch | Standard 3 options | Provenance-based (see Step 6) |
 | `GIT_DIR != GIT_COMMON`, detached HEAD | Reduced 2 options (no merge) | Externally managed — leave in place |
 
-### Step 3: Determine Base Branch
+## Step 3: Determine Base Branch
 
-```bash
-# Try common base branches
-git merge-base HEAD main 2>/dev/null || git merge-base HEAD master 2>/dev/null
-```
+The base branch is whatever this work forked from — usually named in the
+plan, the conversation, or the branch's upstream. If it is not already
+known, ask: "This branch split from <your best guess> - is that correct?"
+Confirm before merging: merging into the wrong base is expensive to undo.
 
-Or ask: "This branch split from main - is that correct?"
-
-### Step 4: Present Options
+## Step 4: Present Options
 
 Use `ask_question` to present the options:
 
@@ -101,9 +87,9 @@ human partner explicitly asking for it (see "If your human partner asks to
 discard the work" below). Wait for their answer; the integration decision
 is theirs.
 
-### Step 5: Execute Choice
+## Step 5: Execute Choice
 
-#### Option 1: Merge Locally
+### Option 1: Merge Locally
 
 ```bash
 # Get main repo root for CWD safety
@@ -117,17 +103,20 @@ git merge <feature-branch>
 
 # Verify tests on merged result
 <test command>
-
-# Only after merge succeeds: cleanup worktree (Step 6), then delete branch
 ```
 
-Then: Cleanup worktree (Step 6), then delete branch:
+If tests fail on the merged result: stop, leave the worktree and branch in
+place, and investigate — nothing has been pushed, so the merge is local
+and recoverable.
+
+Once the merged result is green: clean up the worktree (Step 6), then
+delete the branch:
 
 ```bash
 git branch -d <feature-branch>
 ```
 
-#### Option 2: Push and Create PR
+### Option 2: Push and Create PR
 
 ```bash
 git push -u origin <feature-branch>
@@ -142,7 +131,7 @@ present, and report the URL to your human partner.
 
 Keep the worktree — your human partner iterates on PR feedback there.
 
-#### Option 3: Keep As-Is
+### Option 3: Keep As-Is
 
 Report: "Keeping branch <name>. Worktree preserved at <path>."
 
@@ -175,7 +164,7 @@ Then clean up the worktree (Step 6) and force-delete the branch:
 git branch -D <feature-branch>
 ```
 
-### Step 6: Cleanup Workspace
+## Step 6: Cleanup Workspace
 
 **Runs for Option 1 and confirmed discards.** Options 2 and 3 always
 preserve the workspace. Both callers have already changed directory to the
@@ -199,7 +188,6 @@ git worktree prune
 
 **Otherwise:** The host environment owns this workspace — leave it in
 place. If your platform provides a workspace-exit tool, use it.
-
 
 ## Quick Reference
 
