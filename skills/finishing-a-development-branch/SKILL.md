@@ -44,15 +44,18 @@ Stop. Don't proceed to Step 2.
 ```bash
 GIT_DIR=$(cd "$(git rev-parse --git-dir)" 2>/dev/null && pwd -P)
 GIT_COMMON=$(cd "$(git rev-parse --git-common-dir)" 2>/dev/null && pwd -P)
+# Capture now, while still inside the workspace — Step 5 changes directory
+# before cleanup (Step 6) needs this value
+WORKTREE_PATH=$(git rev-parse --show-toplevel)
 ```
 
 This determines which menu to show and how cleanup works:
 
 | State | Menu | Cleanup |
 |-------|------|---------|
-| `GIT_DIR == GIT_COMMON` (normal repo) | Standard 4 options | No worktree to clean up |
-| `GIT_DIR != GIT_COMMON`, named branch | Standard 4 options | Provenance-based (see Step 6) |
-| `GIT_DIR != GIT_COMMON`, detached HEAD | Reduced 3 options (no merge) | No cleanup (externally managed) |
+| `GIT_DIR == GIT_COMMON` (normal repo) | Standard 3 options | No worktree to clean up |
+| `GIT_DIR != GIT_COMMON`, named branch | Standard 3 options | Provenance-based (see Step 6) |
+| `GIT_DIR != GIT_COMMON`, detached HEAD | Reduced 2 options (no merge) | Externally managed — leave in place |
 
 ### Step 3: Determine Base Branch
 
@@ -73,8 +76,7 @@ ask_question(questions: [{
   options: [
     "Merge back to <base-branch> locally",
     "Push and create a Pull Request",
-    "Keep the branch as-is (I'll handle it later)",
-    "Discard this work"
+    "Keep the branch as-is (I'll handle it later)"
   ],
   is_multi_select: false
 }])
@@ -87,13 +89,17 @@ ask_question(questions: [{
   question: "Implementation complete. You're on a detached HEAD (externally managed workspace). What would you like to do?",
   options: [
     "Push as new branch and create a Pull Request",
-    "Keep as-is (I'll handle it later)",
-    "Discard this work"
+    "Keep as-is (I'll handle it later)"
   ],
   is_multi_select: false
 }])
 ```
 
+Present the menu exactly as written — concise, with every option coming
+from the list above. Discarding the work happens only in response to your
+human partner explicitly asking for it (see "If your human partner asks to
+discard the work" below). Wait for their answer; the integration decision
+is theirs.
 
 ### Step 5: Execute Choice
 
@@ -146,22 +152,29 @@ Report: "Keeping branch <name>. Worktree preserved at <path>."
 
 **Don't cleanup worktree.**
 
-#### Option 4: Discard
+### If your human partner asks to discard the work
 
-**Confirm first** using `ask_permission`:
+This path exists only as a response to an explicit request to throw the
+work away. Confirm first:
+
 ```
-ask_permission(Action: "custom", Target: "discard-branch", Reason: "Permanently delete branch <name>, all commits, and worktree at <path>")
+This will permanently delete:
+- Branch <name>
+- All commits: <commit-list>
+- Worktree at <path>
+
+Type 'discard' to confirm.
 ```
 
-Wait for permission grant before proceeding.
+Wait for that exact confirmation. When it arrives:
 
-If confirmed:
 ```bash
 MAIN_ROOT=$(git -C "$(git rev-parse --git-common-dir)/.." rev-parse --show-toplevel)
 cd "$MAIN_ROOT"
 ```
 
-Then: Cleanup worktree (Step 6), then force-delete branch:
+Then clean up the worktree (Step 6) and force-delete the branch:
+
 ```bash
 git branch -D <feature-branch>
 ```
@@ -191,7 +204,7 @@ git worktree prune
 | 1. Merge locally | yes | - | - | yes |
 | 2. Create PR | - | yes | yes | - |
 | 3. Keep as-is | - | - | yes | - |
-| 4. Discard | - | - | - | yes (force) |
+| Discard (explicit request only) | - | - | - | yes (force) |
 
 ## Common Mistakes
 
