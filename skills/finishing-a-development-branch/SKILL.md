@@ -27,8 +27,6 @@ Tests failing (<N> failures). Must fix before completing:
 
 ## Step 2: Detect Environment
 
-**Determine workspace state before presenting options:**
-
 ```bash
 GIT_DIR=$(cd "$(git rev-parse --git-dir)" 2>/dev/null && pwd -P)
 GIT_COMMON=$(cd "$(git rev-parse --git-common-dir)" 2>/dev/null && pwd -P)
@@ -135,8 +133,6 @@ Keep the worktree — your human partner iterates on PR feedback there.
 
 Report: "Keeping branch <name>. Worktree preserved at <path>."
 
-**Don't cleanup worktree.**
-
 ### If your human partner asks to discard the work
 
 This path exists only as a response to an explicit request to throw the
@@ -170,20 +166,21 @@ git branch -D <feature-branch>
 preserve the workspace. Both callers have already changed directory to the
 main repo root — worktree removal must run from outside the worktree —
 and use the `GIT_DIR`/`GIT_COMMON`/`WORKTREE_PATH` values captured in
-Step 2, from before that directory change.
+Step 2, from before that directory change. The first matching branch below
+wins.
 
 **If `GIT_DIR == GIT_COMMON`:** Normal repo, no worktree to clean up. Done.
 
 **If the workspace was created by `invoke_subagent` with `Workspace: "branch"`:** The platform handles cleanup automatically when the subagent terminates. No manual cleanup needed.
 
-**If `WORKTREE_PATH` is under `.worktrees/` or `worktrees/`:** Superpowers
-created this worktree — we own cleanup:
+**If `WORKTREE_PATH` is under `<repo-root>/.worktrees/` or `<repo-root>/worktrees/`:**
+Superpowers created this worktree — we own cleanup:
 
 ```bash
 MAIN_ROOT=$(git -C "$(git rev-parse --git-common-dir)/.." rev-parse --show-toplevel)
 cd "$MAIN_ROOT"
 git worktree remove "$WORKTREE_PATH"
-git worktree prune
+git worktree prune  # Self-healing: clean up any stale registrations
 ```
 
 **Otherwise:** The host environment owns this workspace — leave it in
