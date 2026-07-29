@@ -110,18 +110,20 @@ This pays the prompt cost once. Every subsequent `invoke_subagent` with these ty
 
 ## Model Selection
 
-Use the least powerful model that can handle each role to conserve cost and increase speed.
+Model tiers are set only in custom-agent `.md` frontmatter (`model: flash|pro|inherit`) in `.agents/agents/<name>.md` — neither `define_subagent` nor `invoke_subagent` takes a model argument. Types registered with `define_subagent` run at the inherited tier; to differentiate tiers, ship the role as a custom agent file and dispatch that TypeName.
 
-**Mechanical implementation tasks** (isolated functions, clear specs, 1-2 files): use a fast, cheap model. Most implementation tasks are mechanical when the plan is well-specified.
+Use the least powerful tier that can handle each role to conserve cost and increase speed.
+
+**Mechanical implementation tasks** (isolated functions, clear specs, 1-2 files): use a flash-tier agent type. Most implementation tasks are mechanical when the plan is well-specified.
 
 **Integration and judgment tasks** (multi-file coordination, pattern matching, debugging): use a standard model.
 
-**Architecture, design, and review tasks**: use the most capable available model.
+**Architecture, design, and review tasks**: use a pro-tier agent type.
 
 **Task complexity signals:**
-- Touches 1-2 files with a complete spec → cheap model
+- Touches 1-2 files with a complete spec → flash-tier agent type
 - Touches multiple files with integration concerns → standard model
-- Requires design judgment or broad codebase understanding → most capable model
+- Requires design judgment or broad codebase understanding → pro-tier agent type
 
 ## Handling Implementer Status
 
@@ -131,15 +133,15 @@ Implementer subagents report one of four statuses. Handle each appropriately:
 
 **DONE_WITH_CONCERNS:** The implementer completed the work but flagged doubts. Read the concerns before proceeding. If the concerns are about correctness or scope, address them before review. If they're observations (e.g., "this file is getting large"), note them and proceed to review.
 
-**NEEDS_CONTEXT:** The implementer needs information that wasn't provided. Provide the missing context and re-dispatch.
+**NEEDS_CONTEXT:** The implementer needs information that wasn't provided. Send the missing context via `send_message` — the idle implementer resumes with its context intact.
 
 **BLOCKED:** The implementer cannot complete the task. Assess the blocker:
-1. If it's a context problem, provide more context and re-dispatch with the same model
-2. If the task requires more reasoning, re-dispatch with a more capable model
+1. If it's a context problem, resume or re-dispatch with more context
+2. If the task requires more reasoning, dispatch a custom agent type whose frontmatter sets a more capable tier (`model: pro`)
 3. If the task is too large, break it into smaller pieces
 4. If the plan itself is wrong, escalate to the user
 
-**Never** ignore an escalation or force the same model to retry without changes. If the implementer said it's stuck, something needs to change.
+**Never** ignore an escalation or force the same agent to retry without changes. If the implementer said it's stuck, something needs to change.
 
 ## Constructing Reviewer Prompts
 
@@ -191,7 +193,7 @@ When implementers run long-running operations (builds, test suites, deployments)
 **For operations expected to take >30 seconds:**
 - Implementer should use `run_command` with a short `WaitMsBeforeAsync` (e.g., 500ms) to background it
 - Use `manage_task` with `status` to check on completion when notified
-- Don't poll in a loop — the system automatically notifies when tasks finish
+- Check completion with `manage_task` `Action: "status"`, paced by a `schedule` timer rather than a tight loop
 - Use `manage_task` with `kill` to terminate stuck processes
 
 **When to background vs. wait:**
@@ -209,10 +211,10 @@ digraph background_decision {
 
 ## Agent Communication
 
-Use `send_message` to communicate with running subagents:
+Use `send_message` to communicate with subagents — running or idle. An idle (finished, not killed) subagent re-awakens on receipt and retains its full context.
 
 **Answering questions mid-flight:**
-- When an implementer asks a question while still running, use `send_message` with the implementer's conversation ID
+- When an implementer asks a question, use `send_message` with the implementer's conversation ID — this works whether it's still running or has gone idle
 - Don't re-dispatch a new subagent just to answer a question — the original implementer has context
 
 **Providing additional context:**
@@ -220,9 +222,9 @@ Use `send_message` to communicate with running subagents:
 - The implementer receives it as a message and can incorporate it into their work
 
 **When to use `send_message` vs. re-dispatch:**
-- Subagent is still running and needs info → `send_message`
-- Subagent reported NEEDS_CONTEXT and stopped → re-dispatch with context
-- Subagent reported BLOCKED → assess blocker, possibly re-dispatch with different model
+- Subagent (running or idle) needs info → `send_message` — an idle subagent resumes with its context intact
+- Subagent reported NEEDS_CONTEXT → send the missing context via `send_message`; re-dispatch a fresh subagent only if the original was killed
+- Subagent reported BLOCKED → assess blocker, possibly resume with more context via `send_message`, break the task into smaller pieces, or dispatch a more capable custom agent type
 
 ## Timeout Protection
 
@@ -232,22 +234,22 @@ Use `schedule` as a safety net for complex tasks:
 digraph timeout {
     "Dispatch implementer" [shape=box];
     "Set one-shot timer" [shape=box];
-    "Timer fires?" [shape=diamond];
-    "Check subagent status" [shape=box];
-    "Subagent completes normally" [shape=box];
-    "Timer cancelled automatically" [shape=box];
+    "Timer fires" [shape=box];
+    "Implementer already responded?" [shape=diamond];
+    "Treat as no-op reminder, move on" [shape=box];
+    "Check subagent status and intervene" [shape=box];
 
     "Dispatch implementer" -> "Set one-shot timer";
-    "Set one-shot timer" -> "Timer fires?" [label="wait"];
-    "Timer fires?" -> "Check subagent status" [label="yes - no response yet"];
-    "Timer fires?" -> "Subagent completes normally" [label="no - response received"];
-    "Subagent completes normally" -> "Timer cancelled automatically";
+    "Set one-shot timer" -> "Timer fires" [label="wait"];
+    "Timer fires" -> "Implementer already responded?";
+    "Implementer already responded?" -> "Treat as no-op reminder, move on" [label="yes"];
+    "Implementer already responded?" -> "Check subagent status and intervene" [label="no"];
 }
 ```
 
 - Set a one-shot timer when dispatching implementers for complex tasks (5 minutes for standard tasks, 10 for complex ones)
 - If the timer fires before the implementer responds, check status and intervene if needed
-- The timer cancels automatically if the implementer responds first — no cleanup needed
+- The timer's Prompt fires unconditionally at the scheduled time — if the implementer already responded, treat the firing as a no-op reminder and move on; no cancellation is documented or needed
 
 **For test suites expected to take 5+ minutes**, use a recurring schedule instead of a one-shot timer:
 ```

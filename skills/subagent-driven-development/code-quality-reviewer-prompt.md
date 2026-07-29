@@ -7,9 +7,10 @@ The code-reviewer's static system prompt includes an "Additional Checks (Subagen
 **Dispatch after spec compliance review passes:**
 
 ```
-invoke_subagent(
+invoke_subagent(Subagents: [{
   TypeName: "code-reviewer",
   Role: "Code quality reviewer for Task N",
-  Prompt: <fill from code-reviewer.md dynamic template>
-)
+  Prompt: <fill from code-reviewer.md dynamic template>,
+  Workspace: "inherit"
+}])
 ```

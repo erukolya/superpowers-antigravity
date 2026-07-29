@@ -97,7 +97,7 @@ Antigravity 2.0 supports three workspace modes for subagents. Choose based on th
 | Mode | Syntax | Use for | Example |
 |------|--------|---------|----------|
 | `branch` | `Workspace: "branch"` | Agents that need isolated write access | Implementers, fixers |
-| `inherit` | `Workspace: "inherit"` | Read-only agents (default) | Reviewers, analyzers |
+| `inherit` | `Workspace: "inherit"` | Read-only agents | Reviewers, analyzers |
 | `share` | `Workspace: "share"` | Agents editing different files in same repo | Parallel fixers on separate test files |
 
 **Rules of thumb:**

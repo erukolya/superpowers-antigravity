@@ -168,7 +168,7 @@ If you find issues, fix them inline. No need to re-review — just fix and move 
 
 ## Execution Handoff
 
-After saving the plan (using `write_to_file` with `IsArtifact: true`, `ArtifactType: "implementation_plan"`, `RequestFeedback: true`), confirm execution:
+After saving the plan (using `write_to_file` with `IsArtifact: true`, with the implementation-plan type and `RequestFeedback: true` in `ArtifactMetadata`), confirm execution:
 
 **"Plan complete and saved. Ready to execute with subagent-driven-development?"**
 

@@ -19,7 +19,7 @@ Every project goes through this process. A todo list, a single-function utility,
 
 ## Checklist
 
-You MUST create a `task.md` artifact (using `write_to_file` with `IsArtifact: true`, `ArtifactType: "task"`) to track each of these items:
+You MUST create a `task.md` artifact (using `write_to_file` with `IsArtifact: true` and the task type in `ArtifactMetadata`) to track each of these items:
 
 
 1. **Explore project context** — use `list_dir` and `grep_search` to check files, docs, recent commits. For large codebases, dispatch a `TypeName: "research"` subagent to explore in parallel while you ask questions.

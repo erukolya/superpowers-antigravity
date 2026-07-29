@@ -52,4 +52,4 @@ Never claim UI work is correct without visual evidence. Browser automation makes
 
 ## Slash Command
 
-Recommend `/browser` to the user when UI verification is needed. This activates browser automation tools for the session.
+Recommend `/browser` to the user when UI verification is needed. `/browser` is the exclusive entry point to the built-in sandboxed `browser` subagent — it is not available via `invoke_subagent` and does not add browser tools to the calling agent's session. The subagent performs the testing (navigation, screenshots, recordings) and returns evidence for the walkthrough artifact.

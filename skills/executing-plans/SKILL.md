@@ -20,7 +20,7 @@ Load plan, review critically, execute all tasks, report when complete.
 2. Read plan file
 3. Review critically - identify any questions or concerns about the plan
 4. If concerns: Raise them with the user before starting
-5. If no concerns: Create task.md artifact (using `write_to_file` with `IsArtifact: true`, `ArtifactType: "task"`) and proceed
+5. If no concerns: Create task.md artifact (using `write_to_file` with `IsArtifact: true` and the task type in `ArtifactMetadata`) and proceed
 
 ### Step 2: Execute Tasks
 
@@ -33,7 +33,7 @@ For each task:
 ### Step 3: Complete Development
 
 After all tasks complete and verified:
-1. **Generate walkthrough artifact:** Create a `walkthrough.md` artifact (using `write_to_file` with `IsArtifact: true`, `ArtifactType: "walkthrough"`, `RequestFeedback: true`) summarizing:
+1. **Generate walkthrough artifact:** Create a `walkthrough.md` artifact (using `write_to_file` with `IsArtifact: true`, with the walkthrough type and `RequestFeedback: true` in `ArtifactMetadata`) summarizing:
    - What was implemented (list of changes per component)
    - What was tested and results
    - Embed any relevant screenshots or recordings
