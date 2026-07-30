@@ -166,10 +166,6 @@ final whole-branch review. When you fill a reviewer template:
   paste accumulated prior-task summaries ("state after Tasks 1-3") into
   later dispatches. A fresh subagent needs its task, the interfaces it
   touches, and the global constraints. Nothing else.
-- Dispatch fix subagents for Critical and Important findings. Record Minor
-  findings in the progress ledger as you go, and point the final
-  whole-branch review at that list so it can triage which must be fixed
-  before merge.
 - Spec-compliance failures (from the spec-reviewer) are always blocking —
   the implementer must fix them before proceeding to code quality review.
   The severity triage above (Critical/Important/Minor) applies to the
@@ -179,12 +175,57 @@ final whole-branch review. When you fill a reviewer template:
   and the plan text, ask which governs. Do not dismiss the finding because
   the plan mandates it, and do not dispatch a fix that contradicts the plan
   without asking.
-- Every fix dispatch carries the implementer contract: the fix subagent
-  re-runs the tests covering its change and reports the results. Name the
-  covering test files in the dispatch — a one-line fix does not need the
-  whole suite.
 - If the final whole-branch review returns findings, dispatch ONE fix
-  subagent with the complete findings list — not one fixer per finding.
+  subagent with the complete findings list — not one fixer per finding —
+  followed by exactly ONE scoped re-review of the fix wave. Residual
+  findings after that are adjudicated, not looped.
+- When a later dispatch touches an area with a parked finding, carry a
+  one-line pointer to that ledger entry in the dispatch prompt.
+
+## The Fix Loop
+
+When either reviewer returns findings, the same loop runs regardless of
+stage. **Record the implementer's conversation ID at dispatch time — the
+loop depends on it.**
+
+**Rounds 1–3 — resume the implementer.** `send_message` the open findings
+verbatim to the implementer's conversation. The idle implementer re-awakens
+with its full context — the task, the code it wrote, its test knowledge —
+and fixes without re-reading anything. Every fix reply must name the
+covering tests it re-ran and show their results; do not dispatch the
+re-review until it does. Record Minor findings in the ledger as you go
+(`Task N: minor (deferred): <one-liner>`) and point the final whole-branch
+review at that list — a roll-up nobody reads is a silent discard.
+
+**Every round ends with a scoped re-review.** Dispatch the `re-reviewer`
+(see `re-review-prompt.md`) with the findings and the fix range. It
+verdicts each finding ADDRESSED or NOT ADDRESSED and checks only the fix
+diff for new breakage — it cannot wander into a fresh full review.
+Out-of-scope observations go to the ledger, never back into the loop.
+
+**Rounds 4–5 — fresh implementer, takeover framing.** If three resumed
+rounds haven't converged, the original implementer's approach may be the
+problem. Kill it (`manage_subagents`), dispatch a fresh `implementer`
+whose Prompt carries: the task text, the prior implementer's last report,
+and the open findings. Its first action is `git checkout <task-branch>` in
+its workspace so it continues the task's commits rather than starting
+over.
+
+**Round counting is shared per task, across both stages.** Append
+`Task <N>: fix round <R>/5 (<stage>: <one-line summary>)` to the ledger
+each round.
+
+**At the cap — adjudicate.** After round 5, stop dispatching. For each
+open finding, rule:
+- **Contested** (implementer and reviewer disagree on whether it's real) —
+  park it: ledger the finding and your ruling.
+- **Real but not load-bearing** for this task — park it the same way; the
+  final review triages it.
+- **Real and load-bearing** — the task is BLOCKED: stop and present it to
+  your human partner with both positions.
+
+Adjudicate only at the cap. Never fix findings yourself in the controller
+session — controller fixes pollute your context and skip review.
 
 ## Background Task Management
 
@@ -428,15 +469,8 @@ Done!
 - Provide additional context if needed
 - Don't rush them into implementation
 
-**If reviewer finds issues:**
-- Implementer (same subagent) fixes them
-- Reviewer reviews again
-- Repeat until approved
-- Don't skip the re-review
-
-**If subagent fails task:**
-- Dispatch fix subagent with specific instructions
-- Don't try to fix manually (context pollution)
+**If reviewer finds issues:** run The Fix Loop — resume the implementer,
+re-review the fix, count the round.
 
 ## Integration
 
