@@ -200,12 +200,37 @@ git remote set-url origin https://github.com/roundpilot/superpowers-antigravity.
 git pull
 ```
 
+### CLI Installation (`agy`)
+
+The Antigravity CLI (`agy`) maintains its own plugin store, separate from the IDE's `~/.gemini/config/plugins/` directory used above. Install from the path you cloned to:
+
+```bash
+agy plugin install ~/.gemini/config/plugins/superpowers
+```
+
+(On Windows, substitute the path from the PowerShell section above, e.g. `agy plugin install "$env:USERPROFILE\.gemini\config\plugins\superpowers"`.)
+
+This stages the plugin at `~/.gemini/antigravity-cli/plugins/superpowers/`.
+
+**Confirm it's installed:**
+```bash
+agy plugin list
+```
+
+**Enable / disable:**
+```bash
+agy plugin enable superpowers
+agy plugin disable superpowers
+```
+
+> IDE and CLI plugin stores are independent — installing into one does not install into the other.
+
 ### ✅ Verify Installation
 
-1. Start a new Antigravity session
-2. Type `/using-superpowers` (or `/superpowers:using-superpowers` for the CLI)
+1. Start a new Antigravity session in any project
+2. Ask: "What superpowers skills do you have available?" — the agent should enumerate skills from this plugin
 3. Say "Let's make a react todo list"
-4. The brainstorming skill should trigger automatically
+4. The brainstorming skill should trigger automatically — the agent asks design questions instead of writing code
 
 ## 📚 Skills Reference
 
