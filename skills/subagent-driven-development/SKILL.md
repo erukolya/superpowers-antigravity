@@ -29,6 +29,8 @@ digraph when_to_use {
 }
 ```
 
+Plans come from **superpowers:writing-plans**. This skill executes one.
+
 ## The Process
 
 ```dot
@@ -43,31 +45,30 @@ digraph process {
         "Implementer subagent implements, tests, commits, self-reviews" [shape=box];
         "invoke_subagent TypeName: spec-reviewer" [shape=box];
         "Spec reviewer subagent confirms code matches spec?" [shape=diamond];
-        "Implementer subagent fixes spec gaps" [shape=box];
         "invoke_subagent TypeName: code-reviewer" [shape=box];
         "Code quality reviewer subagent approves?" [shape=diamond];
-        "Implementer subagent fixes quality issues" [shape=box];
+        "Fix loop: resume implementer, scoped re-review (max 5 rounds/task)" [shape=box];
         "Update task.md artifact" [shape=box];
     }
 
-    "Read plan, extract all tasks, define subagent types, create task.md artifact" [shape=box];
+    "Read plan, extract all tasks, create task.md artifact" [shape=box];
     "More tasks remain?" [shape=diamond];
     "Dispatch final code reviewer subagent for entire implementation" [shape=box];
     "Use superpowers:finishing-a-development-branch" [shape=box style=filled fillcolor=lightgreen];
 
-    "Read plan, extract all tasks, define subagent types, create task.md artifact" -> "invoke_subagent TypeName: implementer";
+    "Read plan, extract all tasks, create task.md artifact" -> "invoke_subagent TypeName: implementer";
     "invoke_subagent TypeName: implementer" -> "Implementer subagent asks questions?";
     "Implementer subagent asks questions?" -> "Answer questions, provide context" [label="yes"];
     "Answer questions, provide context" -> "invoke_subagent TypeName: implementer";
     "Implementer subagent asks questions?" -> "Implementer subagent implements, tests, commits, self-reviews" [label="no"];
     "Implementer subagent implements, tests, commits, self-reviews" -> "invoke_subagent TypeName: spec-reviewer";
     "invoke_subagent TypeName: spec-reviewer" -> "Spec reviewer subagent confirms code matches spec?";
-    "Spec reviewer subagent confirms code matches spec?" -> "Implementer subagent fixes spec gaps" [label="no"];
-    "Implementer subagent fixes spec gaps" -> "invoke_subagent TypeName: spec-reviewer" [label="re-review"];
+    "Spec reviewer subagent confirms code matches spec?" -> "Fix loop: resume implementer, scoped re-review (max 5 rounds/task)" [label="no"];
+    "Fix loop: resume implementer, scoped re-review (max 5 rounds/task)" -> "Spec reviewer subagent confirms code matches spec?" [label="round clean"];
     "Spec reviewer subagent confirms code matches spec?" -> "invoke_subagent TypeName: code-reviewer" [label="yes"];
     "invoke_subagent TypeName: code-reviewer" -> "Code quality reviewer subagent approves?";
-    "Code quality reviewer subagent approves?" -> "Implementer subagent fixes quality issues" [label="no"];
-    "Implementer subagent fixes quality issues" -> "invoke_subagent TypeName: code-reviewer" [label="re-review"];
+    "Code quality reviewer subagent approves?" -> "Fix loop: resume implementer, scoped re-review (max 5 rounds/task)" [label="no"];
+    "Fix loop: resume implementer, scoped re-review (max 5 rounds/task)" -> "Code quality reviewer subagent approves?" [label="round clean"];
     "Code quality reviewer subagent approves?" -> "Update task.md artifact" [label="yes"];
     "Update task.md artifact" -> "More tasks remain?";
     "More tasks remain?" -> "invoke_subagent TypeName: implementer" [label="yes"];
@@ -76,7 +77,14 @@ digraph process {
 }
 ```
 
-## Pre-Flight Plan Review
+## Setup
+
+1. Ensure an isolated workspace: use superpowers:using-git-worktrees to create one or verify the existing one
+
+**Never:**
+- Start implementation on main/master branch without explicit user consent
+
+### Pre-Flight Plan Review
 
 Before dispatching Task 1, scan the plan once for conflicts:
 
@@ -90,15 +98,16 @@ before execution begins, not one interrupt per discovery mid-plan. If the
 scan is clean, proceed without comment. The review loop remains the net for
 conflicts that only emerge from implementation.
 
-## Subagent Type Setup
+- At skill start, resolve this plan's workspace:
+  `<repo-root>/.superpowers/sdd/<plan-basename>/` (plan filename without
+  `.md`). Create it and the self-ignore rule in one command:
+  `mkdir -p .superpowers/sdd/<plan-basename> && printf '*\n' > .superpowers/.gitignore`
 
-At the start of plan execution, **before dispatching any tasks**, locate the absolute paths of the `subagent-driven-development` and `requesting-code-review` skill directories from the `<skills>` section of your prompt. Then, define all three subagent types:
-
-1. `define_subagent` with name `"implementer"` — read `implementer-prompt.md` from the `subagent-driven-development` directory.
-2. `define_subagent` with name `"spec-reviewer"` — read `spec-reviewer-prompt.md` from the `subagent-driven-development` directory.
-3. `define_subagent` with name `"code-reviewer"` — read `code-reviewer.md` from the `requesting-code-review` directory.
-
-This pays the prompt cost once. Every subsequent `invoke_subagent` with these types reuses the cached definition.
+The four roles ship as bundled agents — `implementer`, `spec-reviewer`,
+`code-reviewer`, `re-reviewer` (defined in the plugin's `agents/`
+directory). No registration step: dispatch them by TypeName. If a dispatch
+fails with an unknown TypeName, the plugin's agents are not being
+discovered — verify the plugin installation before working around it.
 
 **Workspace isolation per role:**
 
@@ -107,10 +116,14 @@ This pays the prompt cost once. Every subsequent `invoke_subagent` with these ty
 | Implementer | `Workspace: "branch"` | Needs isolated write access |
 | Spec reviewer | `Workspace: "inherit"` | Read-only — only inspects code |
 | Code reviewer | `Workspace: "inherit"` | Read-only — only inspects code |
+| Re-reviewer | `Workspace: "inherit"` | Read-only — verifies the fix diff |
+
+Read the plan once, extract all tasks with full text and context, and
+create a `task.md` artifact tracking each task's status.
 
 ## Model Selection
 
-Model tiers are set only in custom-agent `.md` frontmatter (`model: flash|pro|inherit`) in `.agents/agents/<name>.md` — neither `define_subagent` nor `invoke_subagent` takes a model argument. Types registered with `define_subagent` run at the inherited tier; to differentiate tiers, ship the role as a custom agent file and dispatch that TypeName.
+Model tiers are set only in custom-agent `.md` frontmatter (`model: flash|pro|inherit`) in `.agents/agents/<name>.md` — `invoke_subagent` does not take a model argument. Bundled and custom types alike run at whatever tier their agent file sets; to differentiate tiers, ship the role as a custom agent file and dispatch that TypeName.
 
 Use the least powerful tier that can handle each role to conserve cost and increase speed.
 
@@ -125,7 +138,14 @@ Use the least powerful tier that can handle each role to conserve cost and incre
 - Touches multiple files with integration concerns → standard model
 - Requires design judgment or broad codebase understanding → pro-tier agent type
 
-## Handling Implementer Status
+## The Task Loop
+
+**Never:**
+- Dispatch multiple implementation subagents in parallel (conflicts)
+- Make subagent read plan file (provide full text instead)
+- **Start code quality review before spec compliance is ✅** (wrong order)
+
+### Handling Implementer Status
 
 Implementer subagents report one of four statuses. Handle each appropriately:
 
@@ -143,7 +163,7 @@ Implementer subagents report one of four statuses. Handle each appropriately:
 
 **Never** ignore an escalation or force the same agent to retry without changes. If the implementer said it's stuck, something needs to change.
 
-## Constructing Reviewer Prompts
+### Constructing Reviewer Prompts
 
 Per-task reviews are task-scoped gates. The broad review happens once, at the
 final whole-branch review. When you fill a reviewer template:
@@ -175,14 +195,10 @@ final whole-branch review. When you fill a reviewer template:
   and the plan text, ask which governs. Do not dismiss the finding because
   the plan mandates it, and do not dispatch a fix that contradicts the plan
   without asking.
-- If the final whole-branch review returns findings, dispatch ONE fix
-  subagent with the complete findings list — not one fixer per finding —
-  followed by exactly ONE scoped re-review of the fix wave. Residual
-  findings after that are adjudicated, not looped.
 - When a later dispatch touches an area with a parked finding, carry a
   one-line pointer to that ledger entry in the dispatch prompt.
 
-## The Fix Loop
+### The Fix Loop
 
 When either reviewer returns findings, the same loop runs regardless of
 stage. **Record the implementer's conversation ID at dispatch time — the
@@ -227,7 +243,9 @@ open finding, rule:
 Adjudicate only at the cap. Never fix findings yourself in the controller
 session — controller fixes pollute your context and skip review.
 
-## Background Task Management
+## Async Operations
+
+### Background Task Management
 
 When implementers run long-running operations (builds, test suites, deployments), use `manage_task` instead of blocking:
 
@@ -249,7 +267,7 @@ digraph background_decision {
 }
 ```
 
-## Agent Communication
+### Agent Communication
 
 Use `send_message` to communicate with subagents — running or idle. An idle (finished, not killed) subagent re-awakens on receipt and retains its full context.
 
@@ -266,7 +284,12 @@ Use `send_message` to communicate with subagents — running or idle. An idle (f
 - Subagent reported NEEDS_CONTEXT → send the missing context via `send_message`; re-dispatch a fresh subagent only if the original was killed
 - Subagent reported BLOCKED → assess blocker, possibly resume with more context via `send_message`, break the task into smaller pieces, or dispatch a more capable custom agent type
 
-## Timeout Protection
+**If subagent asks questions:**
+- Answer clearly and completely
+- Provide additional context if needed
+- Don't rush them into implementation
+
+### Timeout Protection
 
 Use `schedule` as a safety net for complex tasks:
 
@@ -296,7 +319,7 @@ digraph timeout {
 schedule(CronExpression: "*/2 * * * *", MaxIterations: "5", Prompt: "Check implementer status for Task N")
 ```
 
-## Subagent Monitoring
+### Subagent Monitoring
 
 Use `manage_subagents` to track running subagents:
 
@@ -312,10 +335,6 @@ that lost their place have re-dispatched entire completed task sequences — the
 single most expensive failure observed. Track progress in a ledger file, not
 only in todos.
 
-- At skill start, resolve this plan's workspace:
-  `<repo-root>/.superpowers/sdd/<plan-basename>/` (plan filename without
-  `.md`). Create it and the self-ignore rule in one command:
-  `mkdir -p .superpowers/sdd/<plan-basename> && printf '*\n' > .superpowers/.gitignore`
 - The ledger is `progress.md` inside that directory. Its first line names
   the plan: `# SDD ledger — plan: <plan file path>`. A ledger whose first
   line names a different plan — or a stray ledger at the old flat
@@ -331,16 +350,47 @@ only in todos.
   trust the ledger and `git log` over your own recollection.
 - `git clean -fdx` will destroy the ledger (it's git-ignored scratch); if
   that happens, recover from `git log`.
+
+## Final Review
+
+After all tasks are complete, dispatch a final code-reviewer subagent for
+the entire implementation — the one whole-branch review that per-task
+reviews don't cover.
+
+- If the final whole-branch review returns findings, dispatch ONE fix
+  subagent with the complete findings list — not one fixer per finding —
+  followed by exactly ONE scoped re-review of the fix wave. Residual
+  findings after that are adjudicated, not looped.
+
+## Finish
+
 - When the final whole-branch review is clean, delete this plan's
   directory (`rm -rf .superpowers/sdd/<plan-basename>`) — git history is
   the durable record. Leave sibling plan directories alone.
 
+Then hand off to **superpowers:finishing-a-development-branch** to complete
+the branch.
+
+## Common Rationalizations
+
+| Excuse | Reality |
+|--------|---------|
+| "Close enough on spec compliance" | Reviewer found spec gaps = not done. Fix or hit the cap and adjudicate — those are the only exits. |
+| "I'll fix it myself, dispatching is overhead" | Controller fixes pollute your context and skip review. Resume the implementer with `send_message`. |
+| "One more round will converge" | Past the cap, rounds don't converge — the failure is structural. Adjudicate and route. |
+| "The reviewer will just find something new anyway" | Scoped re-reviews verify fixes; they cannot wander. New findings on untouched code go to the ledger, not the loop. |
+| "This finding is obviously wrong, I'll drop it" | You adjudicate only at the cap, and every ruling is a ledger entry. Silent discards are forbidden. |
+| "The fix was small, skip the re-review" | Unreviewed fixes are how regressions land. Every round ends with a scoped re-review. |
+| "Reviews slow the loop down" | The loop without reviews is just unverified churn. Reviews are the loop's brakes and steering. |
+| "Ledger bookkeeping is overhead" | The ledger is what survives compaction. Controllers without one have re-dispatched entire completed task sequences. |
+
 ## Prompt Templates
 
-- `implementer-prompt.md` (located in the `subagent-driven-development` skill directory) — `define_subagent` definition (static system prompt + dynamic prompt template)
-- `spec-reviewer-prompt.md` (located in the `subagent-driven-development` skill directory) — `define_subagent` definition (static system prompt + dynamic prompt template)
-- `code-quality-reviewer-prompt.md` (located in the `subagent-driven-development` skill directory) — Delegates to `code-reviewer` type with extra review criteria
-- `code-reviewer.md` (located in the `requesting-code-review` skill directory) — `define_subagent` definition (static system prompt + dynamic prompt template)
+- `implementer-prompt.md` (located in the `subagent-driven-development` skill directory) — dynamic dispatch template — the static role lives in `agents/implementer.md`
+- `spec-reviewer-prompt.md` (located in the `subagent-driven-development` skill directory) — dynamic dispatch template — the static role lives in `agents/spec-reviewer.md`
+- `code-quality-reviewer-prompt.md` (located in the `subagent-driven-development` skill directory) — dynamic dispatch template — the static role lives in `agents/code-reviewer.md`
+- `re-review-prompt.md` (located in the `subagent-driven-development` skill directory) — dynamic dispatch template — the static role lives in `agents/re-reviewer.md`
+- `code-reviewer.md` (located in the `requesting-code-review` skill directory) — dynamic dispatch template — the static role lives in `agents/code-reviewer.md`
 
 ## Example Workflow
 
@@ -349,9 +399,6 @@ You: I'm using Subagent-Driven Development to execute this plan.
 
 [Read plan file once: docs/superpowers/plans/feature-plan.md]
 [Extract all 5 tasks with full text and context]
-[define_subagent "implementer" — static system prompt from implementer-prompt.md]
-[define_subagent "spec-reviewer" — static system prompt from spec-reviewer-prompt.md]
-[define_subagent "code-reviewer" — static system prompt from code-reviewer.md]
 [Create task.md artifact with all tasks]
 
 Task 1: Hook installation script
@@ -395,20 +442,20 @@ Spec reviewer: ❌ Issues:
   - Missing: Progress reporting (spec says "report every 100 items")
   - Extra: Added --json flag (not requested)
 
-[Implementer fixes issues]
-Implementer: Removed --json flag, added progress reporting
-
-[Spec reviewer reviews again]
-Spec reviewer: ✅ Spec compliant now
+[send_message to implementer conversation: findings verbatim]
+Implementer (resumed): Removed --json flag, added progress reporting. Re-ran test_recovery.py: 9/9 passing.
+[invoke_subagent TypeName: "re-reviewer" — findings + fix range]
+Re-reviewer: Both findings ADDRESSED. No new breakage in fix diff.
+[Ledger: Task 2: fix round 1/5 (spec: json flag + progress reporting)]
 
 [invoke_subagent TypeName: "code-reviewer"]
 Code reviewer: Strengths: Solid. Issues (Important): Magic number (100)
 
-[Implementer fixes]
-Implementer: Extracted PROGRESS_INTERVAL constant
-
-[Code reviewer reviews again]
-Code reviewer: ✅ Approved
+[send_message to implementer conversation: findings verbatim]
+Implementer (resumed): Extracted PROGRESS_INTERVAL constant. Re-ran full suite: 8/8 passing.
+[invoke_subagent TypeName: "re-reviewer" — findings + fix range]
+Re-reviewer: Finding ADDRESSED. No new breakage in fix diff.
+[Ledger: Task 2: fix round 1/5 (quality: magic number extraction)]
 
 [Update task.md: mark Task 2 complete]
 
@@ -420,66 +467,3 @@ Final reviewer: All requirements met, ready to merge
 
 Done!
 ```
-
-## Advantages
-
-**vs. Manual execution:**
-- Subagents follow TDD naturally
-- Fresh context per task (no confusion)
-- Parallel-safe (subagents don't interfere)
-- Subagent can ask questions (before AND during work)
-
-**Efficiency gains:**
-- No file reading overhead (controller provides full text)
-- Controller curates exactly what context is needed
-- Subagent gets complete information upfront
-- Questions surfaced before work begins (not after)
-
-**Quality gates:**
-- Self-review catches issues before handoff
-- Two-stage review: spec compliance, then code quality
-- Review loops ensure fixes actually work
-- Spec compliance prevents over/under-building
-- Code quality ensures implementation is well-built
-
-**Cost:**
-- More subagent invocations (implementer + 2 reviewers per task)
-- Controller does more prep work (extracting all tasks upfront)
-- Review loops add iterations
-- But catches issues early (cheaper than debugging later)
-
-## Red Flags
-
-**Never:**
-- Start implementation on main/master branch without explicit user consent
-- Skip reviews (spec compliance OR code quality)
-- Proceed with unfixed issues
-- Dispatch multiple implementation subagents in parallel (conflicts)
-- Make subagent read plan file (provide full text instead)
-- Skip scene-setting context (subagent needs to understand where task fits)
-- Ignore subagent questions (answer before letting them proceed)
-- Accept "close enough" on spec compliance (spec reviewer found issues = not done)
-- Skip review loops (reviewer found issues = implementer fixes = review again)
-- Let implementer self-review replace actual review (both are needed)
-- **Start code quality review before spec compliance is ✅** (wrong order)
-- Move to next task while either review has open Critical/Important issues
-
-**If subagent asks questions:**
-- Answer clearly and completely
-- Provide additional context if needed
-- Don't rush them into implementation
-
-**If reviewer finds issues:** run The Fix Loop — resume the implementer,
-re-review the fix, count the round.
-
-## Integration
-
-**Required workflow skills:**
-- **superpowers:using-git-worktrees** - Ensures isolated workspace (creates one or verifies existing)
-- **superpowers:writing-plans** - Creates the plan this skill executes
-- **superpowers:requesting-code-review** - Code review template for reviewer subagents
-- **superpowers:finishing-a-development-branch** - Complete development after all tasks
-
-**Subagents should use:**
-- **superpowers:test-driven-development** - Subagents follow TDD for each task
-
