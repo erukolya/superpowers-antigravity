@@ -192,7 +192,6 @@ When implementers run long-running operations (builds, test suites, deployments)
 
 **For operations expected to take >30 seconds:**
 - Implementer should use `run_command` with a short `WaitMsBeforeAsync` (e.g., 500ms) to background it
-- Use `manage_task` with `status` to check on completion when notified
 - Check completion with `manage_task` `Action: "status"`, paced by a `schedule` timer rather than a tight loop
 - Use `manage_task` with `kill` to terminate stuck processes
 
@@ -272,8 +271,16 @@ that lost their place have re-dispatched entire completed task sequences — the
 single most expensive failure observed. Track progress in a ledger file, not
 only in todos.
 
-- At skill start, check for a ledger: read `.superpowers/sdd/progress.md`
-  from the repository root. Tasks listed there as complete are DONE — do not
+- At skill start, resolve this plan's workspace:
+  `<repo-root>/.superpowers/sdd/<plan-basename>/` (plan filename without
+  `.md`). Create it and the self-ignore rule in one command:
+  `mkdir -p .superpowers/sdd/<plan-basename> && printf '*\n' > .superpowers/.gitignore`
+- The ledger is `progress.md` inside that directory. Its first line names
+  the plan: `# SDD ledger — plan: <plan file path>`. A ledger whose first
+  line names a different plan — or a stray ledger at the old flat
+  `.superpowers/sdd/progress.md` — is another plan's progress: leave it and
+  start fresh.
+- Tasks listed in this plan's ledger as complete are DONE — do not
   re-dispatch them; resume at the first task not marked complete.
 - When a task's review comes back clean, append one line to the ledger in
   the same message as your other bookkeeping:
@@ -283,6 +290,9 @@ only in todos.
   trust the ledger and `git log` over your own recollection.
 - `git clean -fdx` will destroy the ledger (it's git-ignored scratch); if
   that happens, recover from `git log`.
+- When the final whole-branch review is clean, delete this plan's
+  directory (`rm -rf .superpowers/sdd/<plan-basename>`) — git history is
+  the durable record. Leave sibling plan directories alone.
 
 ## Prompt Templates
 
