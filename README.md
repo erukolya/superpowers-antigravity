@@ -32,7 +32,7 @@ Next up, once you say "go", it launches a *subagent-driven-development* process,
 
 There's a bunch more to it, but that's the core of the system. And because the skills trigger automatically, you don't need to do anything special. Your coding agent just has Superpowers.
 
-The bootstrap ships as a native Always-On rule (with a context-file fallback for CLI compatibility).
+The bootstrap ships as a native rule (activate it as Always On in the Rules panel if it isn't already), with a context-file fallback for CLI compatibility.
 
 ## 🔀 What's Different from Upstream?
 
