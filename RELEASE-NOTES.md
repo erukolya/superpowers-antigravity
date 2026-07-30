@@ -1,5 +1,33 @@
 # Superpowers Release Notes
 
+## v6.2.0 (2026-07-29)
+
+### Upstream v6.2.0 Sync
+
+* **Compression sweep across nine skills** (~95 lines removed). Recap and benefits-selling sections are gone; the load-bearing arguments moved to their points of use — YAGNI into brainstorming's approach exploration, the isolated-workspace requirement into executing-plans Step 1, the verification-before-completion pointer into systematic-debugging's fix phase. `requesting-code-review` swaps its workflow recap for a Common Rationalizations table.
+* **`finishing-a-development-branch` no longer offers to discard your work.** The completion menu is now merge / PR / keep; discarding happens only when you explicitly ask for it, confirmed by typing `discard`. (The confirmation previously used `ask_permission`, which requests scoped resource permissions — it isn't a confirmation dialog.) PR creation is forge-agnostic: use your forge's CLI or the URL printed on push, instead of a hardcoded `gh` invocation with a heredoc that PowerShell can't parse. Also fixed worktree cleanup: the worktree path was consumed but never captured, so cleanup always failed with the worktree still attached — it's now captured before the directory change, and ownership checks are anchored at the repo root so platform-managed worktrees can never be matched for removal.
+* **`testing-anti-patterns.md` is now `writing-good-tests.md`.** Upstream's positive rewrite of the TDD reference: name the production change that would fail each test, exercise the real thing instead of mocks, and finish with a mutation check. TDD's "Why Order Matters" section is folded into the Common Rationalizations table, with each row carrying the full argument instead of a one-liner.
+* **`find-polluter.sh` actually finds test files now.** The documented pattern never matched (`find .` emits `./`-prefixed paths) and empty results counted as one file, so the script reported a clean suite without running a single test. Fixed, and patterns like `src/**/*.test.ts` now also match files directly under the base directory. Ships with a test suite (`tests/systematic-debugging/test-find-polluter.sh`) that runs without `agy`. `assert_order` in the test helpers now dumps output on failure so flakes are diagnosable.
+
+### Antigravity 2.0 API Corrections
+
+Reviewed every tool call and capability claim in the skills against the official Antigravity 2.0 tool schemas and fixed what didn't match:
+
+* `invoke_subagent` examples use the `Subagents` array — the platform has no bare named-parameter form.
+* Artifact typing and `RequestFeedback` belong inside `ArtifactMetadata`; `write_to_file` has no such top-level arguments. Five call sites corrected.
+* Model tiers are set in custom-agent `.md` frontmatter (`model: flash|pro`) — neither `define_subagent` nor `invoke_subagent` takes a model argument. The SDD model-selection guidance now points at the real mechanism.
+* `send_message` reaches idle subagents too: they re-awaken with their full context. Re-dispatch a fresh subagent only when the original was killed — no more throwing away a finished implementer's context to deliver a follow-up.
+* Removed claims the platform doesn't back: `schedule` timers don't auto-cancel when a subagent replies, background tasks don't push completion notifications (check `manage_task` status on a `schedule` cadence instead), and `Workspace` has no documented default value.
+* `/browser` is the only way to invoke the sandboxed browser subagent, and it doesn't add browser tools to your session — `browser-testing` now describes it correctly.
+
+### Not Ported from Upstream v6.2.0
+
+* **SDD plan-scoped workspace and resume-based fix loop** — upstream builds both on the `scripts/` file-handoff layer removed here in v6.0.0 (branch-isolated implementers can't read gitignored directories).
+* **Windows SessionStart hook fix** — no `hooks/` in this fork; the GEMINI.md bootstrap is already line-ending-safe.
+* **Gemini CLI restoration, Codex packaging fix, mapping-test scoping** — they patch infrastructure this fork deleted in v6.0.0.
+
+---
+
 ## v6.0.2 (2026-07-01)
 
 ### Lower Per-Session Token Cost

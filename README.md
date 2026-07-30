@@ -9,7 +9,7 @@
 
 <p align="center">
   <a href="https://github.com/roundpilot/superpowers-antigravity#-installation"><img src="https://img.shields.io/badge/Install-Guide-blue?style=for-the-badge" alt="Install"></a>
-  <a href="RELEASE-NOTES.md"><img src="https://img.shields.io/badge/Version-6.0.2-green?style=for-the-badge" alt="Version 6.0.2"></a>
+  <a href="RELEASE-NOTES.md"><img src="https://img.shields.io/badge/Version-6.2.0-green?style=for-the-badge" alt="Version 6.2.0"></a>
   <a href="https://github.com/obra/superpowers"><img src="https://img.shields.io/badge/Fork%20of-obra%2Fsuperpowers-purple?style=for-the-badge" alt="Fork of obra/superpowers"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge" alt="MIT License"></a>
 </p>
@@ -63,7 +63,7 @@ The abstraction layer costs tokens on every interaction, and those costs compoun
 | **Tool names in skills** | Claude Code names + mapping files | Native Antigravity names |
 | **Subagent dispatch** | `Task tool (general-purpose)` | `invoke_subagent` / `define_subagent` |
 | **Workspace isolation** | `git worktree` with fallback | Native `Workspace: "branch"` / `"share"` / `"inherit"` |
-| **Task tracking** | `TodoWrite` tool | `task.md` artifacts with `RequestFeedback` |
+| **Task tracking** | `TodoWrite` tool | `task.md` artifacts |
 | **Visual brainstorming** | Browser-based server | Native `generate_image` (no server needed) |
 | **Plan formatting** | Plain markdown | Mermaid diagrams, file links, diff blocks, GitHub alerts |
 | **Background tasks** | Not documented | `manage_task`, `send_message`, `schedule` (incl. cron) |
@@ -80,7 +80,7 @@ Beyond the platform port, this fork adds capabilities that don't exist upstream:
 - 🔄 **Async subagent coordination** — `manage_task` for builds, `send_message` mid-flight, `schedule` for timeouts
 - 🌐 **Browser-testing skill** — evidence-before-assertions discipline for UI work
 - 💰 **Token-saving subagents** — reviewers use `TypeName: "research"` (read-only, smaller context)
-- ✅ **Automatic feedback loops** — `RequestFeedback: true` on design docs and plans
+- ✅ **Automatic feedback loops** — `RequestFeedback: true` (in `ArtifactMetadata`) on design docs and plans
 - 🔀 **Workspace mode guidance** — decision tables for `branch` / `inherit` / `share` per role
 - 🔍 **Web research integration** — `search_web` woven into debugging, brainstorming, and planning
 
