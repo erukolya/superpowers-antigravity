@@ -22,7 +22,8 @@ echo ""
 [ -f "$RULE_FILE" ] || { echo "  [FAIL] rule file not found: $RULE_FILE"; exit 1; }
 
 BODY_FILE="$(mktemp)"
-cleanup() { rm -f "$BODY_FILE"; }
+SKILL_BODY_FILE="$(mktemp)"
+cleanup() { rm -f "$BODY_FILE" "$SKILL_BODY_FILE"; }
 trap cleanup EXIT
 
 # The mirrored body starts on the line right after the blank line that
@@ -37,10 +38,27 @@ fi
 BODY_START=$((MARKER_LINE + 2))
 tail -n "+$BODY_START" "$RULE_FILE" > "$BODY_FILE"
 
-echo "=== Check: mirrored body (from line $BODY_START of $(basename "$RULE_FILE")) vs SKILL.md ==="
+# The mirror excludes SKILL.md's own YAML frontmatter (see the MIRROR
+# comment in $RULE_FILE: "from its first heading onward") -- only the
+# content after it is mirrored, so frontmatter never renders mid-file as a
+# stray thematic break + name:/description: prose. Locate the frontmatter's
+# closing "---" dynamically (never hardcode a line number) and start the
+# comparison body two lines after it, exactly mirroring how BODY_START is
+# derived from $RULE_FILE's own "-->" marker above.
+FRONTMATTER_CLOSE_LINE="$(grep -n -- '^---$' "$SKILL_FILE" | sed -n '2p' | cut -d: -f1)"
+
+if [ -z "$FRONTMATTER_CLOSE_LINE" ]; then
+    echo "  [FAIL] no closing '---' frontmatter delimiter found in $SKILL_FILE"
+    exit 1
+fi
+
+SKILL_BODY_START=$((FRONTMATTER_CLOSE_LINE + 2))
+tail -n "+$SKILL_BODY_START" "$SKILL_FILE" > "$SKILL_BODY_FILE"
+
+echo "=== Check: mirrored body (from line $BODY_START of $(basename "$RULE_FILE")) vs SKILL.md (from line $SKILL_BODY_START, past its frontmatter) ==="
 echo ""
 
-if DIFF_OUTPUT="$(diff -u "$SKILL_FILE" "$BODY_FILE")"; then
+if DIFF_OUTPUT="$(diff -u "$SKILL_BODY_FILE" "$BODY_FILE")"; then
     echo "  [PASS] mirrored body is byte-identical to SKILL.md"
     echo ""
     echo "========================================"

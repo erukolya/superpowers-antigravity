@@ -83,11 +83,19 @@ OUTPUT=$(run_antigravity "$PROMPT" "$TIMEOUT") || true
 echo "$OUTPUT" > "$LOG_FILE"
 
 echo "Running agy --print with naive prompt (stream-json capture for event detection)..."
-STREAM_OUTPUT=$(run_antigravity "$PROMPT" "$TIMEOUT" "stream-json") || true
-echo "$STREAM_OUTPUT" > "$STREAM_FILE"
+# Capture run_antigravity's own exit status without letting `set -e` abort
+# here on a nonzero exit -- the `&&`/`||` list form is exempt from errexit
+# for the command before the final `&&`/`||`, so a failing run still falls
+# through to STREAM_EXIT=$? instead of killing the script.
+STREAM_OUTPUT=$(run_antigravity "$PROMPT" "$TIMEOUT" "stream-json") && STREAM_EXIT=0 || STREAM_EXIT=$?
+# printf, not echo: echo always writes at least a trailing newline, so an
+# EMPTY $STREAM_OUTPUT (a failed/empty capture) would still leave the file
+# 1 byte long -- making `[ -s "$STREAM_FILE" ]` true even when nothing was
+# actually captured. printf '%s' writes zero bytes for an empty string.
+printf '%s' "$STREAM_OUTPUT" > "$STREAM_FILE"
 
 STREAM_CAPTURE_OK=false
-if [ -s "$STREAM_FILE" ]; then
+if [ "$STREAM_EXIT" -eq 0 ] && [ -s "$STREAM_FILE" ]; then
     STREAM_CAPTURE_OK=true
 fi
 
@@ -109,7 +117,14 @@ SKILL_MD_PATTERN="${SKILL_NAME}/SKILL"
 if [ "$STREAM_CAPTURE_OK" = "true" ]; then
     EVENT_CHECK_RAN=true
     if command -v jq &>/dev/null; then
-        VIEW_FILE_HIT=$(jq -c '.. | objects | select(.name? == "view_file")' "$STREAM_FILE" 2>/dev/null | grep -F "$SKILL_MD_PATTERN" || true)
+        # -R (raw input) + fromjson? processes the capture line-by-line and
+        # skips any line that isn't valid JSON on its own, instead of
+        # parsing the whole file as one JSON stream. The stream-json capture
+        # can contain non-JSON lines (stderr merged in, banner/prose output,
+        # etc.); feeding those through the default (non-raw) jq input mode
+        # aborts parsing at the first bad line and loses every event that
+        # would otherwise have followed it.
+        VIEW_FILE_HIT=$(jq -R -c 'fromjson? | .. | objects | select(.name? == "view_file")' "$STREAM_FILE" 2>/dev/null | grep -F "$SKILL_MD_PATTERN" || true)
     else
         VIEW_FILE_HIT=$(grep -E '"name" *: *"view_file"' "$STREAM_FILE" 2>/dev/null | grep -F "$SKILL_MD_PATTERN" || true)
     fi

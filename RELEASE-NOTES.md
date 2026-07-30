@@ -27,7 +27,7 @@ Reviewed every tool call and capability claim in the skills against the official
 
 ### Features
 
-* **Native rule bootstrap, an edit-time purity gate, and tighter subagent handling.** The `using-superpowers` bootstrap now ships as an Always-On rule, so every session gets it without depending on documentation load order. A `PreToolUse` hook blocks writes that would reintroduce banned vocabulary into `skills/` before they land, enforcing the same check CI already runs. Subagent-driven development now recognizes a terminal error state distinct from idle (dispatch fresh rather than resume) and treats inline artifact comments as change requests during plan and spec review, not just chat replies.
+* **Native rule bootstrap, an edit-time purity gate, and tighter subagent handling.** The `using-superpowers` bootstrap now ships as a native rule — activate Always On in the Rules panel if it isn't already — removing the dependency on documentation load order. A `PreToolUse` hook blocks writes that would reintroduce banned vocabulary into `skills/` before they land, enforcing the same check as the repo's purity test. Subagent-driven development now recognizes a terminal error state distinct from idle (dispatch fresh rather than resume) and treats inline artifact comments as change requests during plan and spec review, not just chat replies.
 
 ### Not Ported from Upstream v6.2.0
 

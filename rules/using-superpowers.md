@@ -16,11 +16,6 @@ compatibility.
 
 <!-- MIRROR: body below must stay byte-identical to skills/using-superpowers/SKILL.md (from its first heading onward). tests/antigravity/test-rule-sync.sh enforces this. The @-import form was avoided because the platform docs are self-contradictory on relative-path resolution for rule files. -->
 
----
-name: using-superpowers
-description: Use when starting any conversation - establishes how to find and use skills, requiring skill invocation before ANY response including clarifying questions
----
-
 <SUBAGENT-STOP>
 If you were dispatched as a subagent to execute a specific task, ignore this skill.
 </SUBAGENT-STOP>

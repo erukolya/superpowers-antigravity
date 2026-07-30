@@ -17,6 +17,15 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 HOOK="$REPO_ROOT/hooks/purity-check.sh"
+# The hook now scopes deny decisions to THIS repo's own skills/ tree
+# (resolved from the hook script's own on-disk location -- see
+# hooks/purity-check.sh). Fixtures whose EXPECTED outcome is "deny" must
+# therefore target a real, absolute path under $REPO_ROOT/skills/ -- a bare
+# relative "skills/..." TargetFile would only land in scope if this test
+# happened to be invoked with $REPO_ROOT as $PWD, which isn't guaranteed.
+# Nothing under these paths is ever actually written; the hook only ever
+# reads TargetFile out of the fixture's JSON.
+REPO_SKILLS_DIR="$REPO_ROOT/skills"
 
 echo "========================================"
 echo " Test: PreToolUse Purity Hook (Behavioral)"
@@ -87,11 +96,11 @@ echo "=== Fixtures ==="
 echo ""
 
 # 1. Clean skills/ write -> allow.
-FIXTURE_CLEAN='{"toolCall":{"name":"write_to_file","args":{"TargetFile":"skills/example-skill/SKILL.md","CodeContent":"# Example Skill\n\nThis skill helps with a task. It mentions no legacy tool names.\n","Overwrite":true}},"stepIdx":1,"conversationId":"test-1"}'
+FIXTURE_CLEAN='{"toolCall":{"name":"write_to_file","args":{"TargetFile":"'"$REPO_SKILLS_DIR"'/example-skill/SKILL.md","CodeContent":"# Example Skill\n\nThis skill helps with a task. It mentions no legacy tool names.\n","Overwrite":true}},"stepIdx":1,"conversationId":"test-1"}'
 assert_allow "clean skills/ write -> allow" "$FIXTURE_CLEAN"
 
 # 2. TodoWrite (CC_TOOLS group) mentioned in a skills/ write -> deny, naming it.
-FIXTURE_CC_DENY='{"toolCall":{"name":"replace_file_content","args":{"TargetFile":"skills/example-skill/SKILL.md","Instruction":"clarify guidance","ReplacementContent":"Use the TodoWrite tool to track your progress through the plan."}},"stepIdx":2,"conversationId":"test-2"}'
+FIXTURE_CC_DENY='{"toolCall":{"name":"replace_file_content","args":{"TargetFile":"'"$REPO_SKILLS_DIR"'/example-skill/SKILL.md","Instruction":"clarify guidance","ReplacementContent":"Use the TodoWrite tool to track your progress through the plan."}},"stepIdx":2,"conversationId":"test-2"}'
 assert_deny "TodoWrite in skills/ write -> deny naming the pattern" "$FIXTURE_CC_DENY" "TodoWrite"
 
 # 3. Same banned content, but the target file is OUTSIDE skills/ -> allow.
@@ -104,15 +113,15 @@ assert_allow "malformed JSON -> fail-safe allow" "$FIXTURE_MALFORMED"
 
 # 5. multi_replace_file_content with chunk[0] clean and chunk[1] bad -> deny.
 # Proves every element of ReplacementChunks is checked, not just the first.
-FIXTURE_MULTI_ONE_BAD='{"toolCall":{"name":"multi_replace_file_content","args":{"TargetFile":"skills/example-skill/SKILL.md","Instruction":"tidy up","ReplacementChunks":[{"StartLine":1,"EndLine":2,"TargetContent":"old header","ReplacementContent":"# Example Skill\n\nClean chunk, nothing wrong here.\n"},{"StartLine":40,"EndLine":42,"TargetContent":"old footer","ReplacementContent":"Historically this workflow was Claude Code specific.\n"}]}},"stepIdx":5,"conversationId":"test-5"}'
+FIXTURE_MULTI_ONE_BAD='{"toolCall":{"name":"multi_replace_file_content","args":{"TargetFile":"'"$REPO_SKILLS_DIR"'/example-skill/SKILL.md","Instruction":"tidy up","ReplacementChunks":[{"StartLine":1,"EndLine":2,"TargetContent":"old header","ReplacementContent":"# Example Skill\n\nClean chunk, nothing wrong here.\n"},{"StartLine":40,"EndLine":42,"TargetContent":"old footer","ReplacementContent":"Historically this workflow was Claude Code specific.\n"}]}},"stepIdx":5,"conversationId":"test-5"}'
 assert_deny "multi_replace with one bad chunk (2nd of 2) -> deny" "$FIXTURE_MULTI_ONE_BAD" "Claude Code"
 
 # 6. Platform-name group (not CC_TOOLS) also wired in: Codex CLI in skills/ -> deny.
-FIXTURE_PLATFORM_DENY='{"toolCall":{"name":"write_to_file","args":{"TargetFile":"skills/example-skill/reference.md","CodeContent":"This used to require Codex CLI specifically.\n"}},"stepIdx":6,"conversationId":"test-6"}'
+FIXTURE_PLATFORM_DENY='{"toolCall":{"name":"write_to_file","args":{"TargetFile":"'"$REPO_SKILLS_DIR"'/example-skill/reference.md","CodeContent":"This used to require Codex CLI specifically.\n"}},"stepIdx":6,"conversationId":"test-6"}'
 assert_deny "platform-name group (Codex CLI) in skills/ -> deny" "$FIXTURE_PLATFORM_DENY" "Codex CLI"
 
 # 7. Tool-mapping-reference group also wired in: antigravity-tools in skills/ -> deny.
-FIXTURE_MAPPING_DENY='{"toolCall":{"name":"replace_file_content","args":{"TargetFile":"skills/example-skill/reference.md","ReplacementContent":"See antigravity-tools for the mapping.\n"}},"stepIdx":7,"conversationId":"test-7"}'
+FIXTURE_MAPPING_DENY='{"toolCall":{"name":"replace_file_content","args":{"TargetFile":"'"$REPO_SKILLS_DIR"'/example-skill/reference.md","ReplacementContent":"See antigravity-tools for the mapping.\n"}},"stepIdx":7,"conversationId":"test-7"}'
 assert_deny "mapping-reference group (antigravity-tools) in skills/ -> deny" "$FIXTURE_MAPPING_DENY" "antigravity-tools"
 
 # 8. Self-review case: the CI gate's own pattern-definition text, written to a
@@ -125,8 +134,17 @@ assert_allow "banned pattern text under tests/ (not skills/) -> allow" "$FIXTURE
 # an operative instruction) -> still deny. This is deliberate: the CI gate
 # (grep -rnE, indiscriminate) would also fail this write, so denying it here
 # keeps the live gate and the CI gate enforcing the exact same law.
-FIXTURE_PROSE_QUOTE='{"toolCall":{"name":"write_to_file","args":{"TargetFile":"skills/example-skill/history.md","CodeContent":"Historically, some agents used a tool called TodoWrite for planning.\n","Overwrite":true}},"stepIdx":9,"conversationId":"test-9"}'
+FIXTURE_PROSE_QUOTE='{"toolCall":{"name":"write_to_file","args":{"TargetFile":"'"$REPO_SKILLS_DIR"'/example-skill/history.md","CodeContent":"Historically, some agents used a tool called TodoWrite for planning.\n","Overwrite":true}},"stepIdx":9,"conversationId":"test-9"}'
 assert_deny "skills/ file quoting a banned term in prose -> still deny (same law as CI)" "$FIXTURE_PROSE_QUOTE" "TodoWrite"
+
+# 10. Blast-radius guarantee: the SAME banned content, targeting a skills/
+# path under a completely FOREIGN project (not this repo/plugin) -> allow.
+# hooks.json ships to every install that enables this plugin, so without
+# the plugin-root anchor this write would have been denied even though it
+# has nothing to do with this fork's vocabulary law. This is the direct
+# regression fixture for that fix.
+FIXTURE_FOREIGN_WORKSPACE='{"toolCall":{"name":"write_to_file","args":{"TargetFile":"/tmp/other-project/skills/x.md","CodeContent":"Use the TodoWrite tool to track your progress through the plan.","Overwrite":true}},"stepIdx":10,"conversationId":"test-10"}'
+assert_allow "banned content in a FOREIGN project's skills/ -> allow (blast-radius guarantee)" "$FIXTURE_FOREIGN_WORKSPACE"
 
 echo ""
 echo "========================================"

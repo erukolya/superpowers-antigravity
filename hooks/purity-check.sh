@@ -1,15 +1,28 @@
 #!/usr/bin/env bash
 # PreToolUse purity gate -- denies write_to_file / replace_file_content /
 # multi_replace_file_content calls that would introduce banned vocabulary
-# into skills/. This is the SAME law tests/antigravity/test-skill-tool-purity.sh
-# enforces in CI (the three pattern groups below are copied verbatim from
-# that file's lines 22, 35, 48) -- this hook just catches it before the write
-# lands instead of after, at edit time.
+# into THIS PLUGIN'S OWN skills/ tree. This is the SAME law
+# tests/antigravity/test-skill-tool-purity.sh enforces (the three pattern
+# groups below are copied verbatim from that file's lines 22, 35, 48) --
+# this hook just catches it before the write lands instead of after, at
+# edit time.
+#
+# --- Scope: this plugin's skills/ only, never any other project's --------
+# hooks.json ships to every install that enables this plugin, so a naive
+# "does this path contain skills/" check would vet ANY open workspace's
+# skills/ writes against this fork-internal vocabulary law -- including
+# projects that have nothing to do with this repo and don't share its
+# terminology rules. The scope check below anchors to $PLUGIN_ROOT
+# (resolved from this script's own on-disk location, never from anything
+# in the tool-call payload) so a write under some other project's skills/
+# tree always passes through untouched, no matter what workspace happens
+# to be open in the same Antigravity session.
 #
 # --- Contract (fetched 2026-07-30, https://antigravity.google/docs/hooks and
 #     https://antigravity.google/docs/ide/hooks; tool-arg names from
 #     https://antigravity.google/docs/tools) --------------------------------
-#   stdin (PreToolUse):  {"toolCall": {"name": <str>, "args": {...}}, ...}
+#   stdin (PreToolUse):  {"toolCall": {"name": <str>, "args": {...}}, ...,
+#     "workspacePaths": [<str>, ...]}
 #   stdout (PreToolUse): {"decision": "allow|deny|ask|force_ask", "reason": <str>}
 #   File-tool arg keys: write_to_file -> TargetFile, CodeContent;
 #     replace_file_content -> TargetFile, ReplacementContent;
@@ -25,8 +38,12 @@
 # tool call DENIED with "invalid_args", for every call the matcher covers,
 # not just the one under review. So "fail safe" here means "always print a
 # well-formed {"decision":"allow"} unless we are POSITIVELY sure this is a
-# banned write under skills/" -- never nothing, never a malformed shape. An
-# EXIT trap backstops this even against bugs in this script itself.
+# banned write under THIS PLUGIN'S OWN skills/" -- never nothing, never a
+# malformed shape. An EXIT trap backstops this even against bugs in this
+# script itself. The same rule applies to resolving our own plugin root and
+# to absolutizing TargetFile: if either can't be pinned down into a
+# confident same-plugin/not-same-plugin answer, that's a reason to allow,
+# not deny.
 #
 # Deliberately NOT `set -e`: every code path below must still reach the
 # trap's fail-open default if something unexpected fails partway through.
@@ -60,6 +77,35 @@ deny() {
     exit 0
 }
 
+# This plugin's own root -- hooks/purity-check.sh lives at
+# <plugin-root>/hooks/, so one level up from this script's own directory is
+# the anchor every scope decision below is measured against. Resolved from
+# the script's on-disk location, never from anything in the tool-call
+# payload (caller-controlled data, not a trust anchor).
+PLUGIN_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)" || PLUGIN_ROOT=""
+[ -n "$PLUGIN_ROOT" ] || allow   # couldn't resolve our own root -> ambiguous, fail open
+
+# normalize_drive: "X:/foo" -> "/x/foo" (lowercase drive letter). Bash's own
+# `pwd` (used for PLUGIN_ROOT above) returns POSIX-style paths under Git
+# Bash/MSYS, so this brings a drive-letter absolute path (TargetFile or
+# workspacePaths, Windows-native) into that same convention before either
+# side of a prefix comparison is trusted. Anything already POSIX-style, or
+# not a drive-letter path at all, passes through unchanged.
+normalize_drive() {
+    case "$1" in
+        [A-Za-z]:/*)
+            drive="$(printf '%s' "${1%%:*}" | tr 'A-Z' 'a-z')"
+            printf '/%s%s' "$drive" "${1#*:}"
+            ;;
+        *)
+            printf '%s' "$1"
+            ;;
+    esac
+}
+
+PLUGIN_ROOT_NORM="$(normalize_drive "$(printf '%s' "$PLUGIN_ROOT" | tr '\\' '/')")"
+PLUGIN_ROOT_NORM="${PLUGIN_ROOT_NORM%/}"
+
 # Same three pattern groups as tests/antigravity/test-skill-tool-purity.sh:22,35,48.
 # Kept as separate variables (not pre-merged) so a future diff against that
 # file is a straight line-for-line comparison.
@@ -74,9 +120,12 @@ INPUT="$(cat)"
 CONTENTS_FILE="$(mktemp)" || allow   # can't stage content -> fail open
 
 TARGET_FILE=""
+WORKSPACE_ROOT=""
 PARSE_OK=0
+PARSER=""
 
 if command -v jq >/dev/null 2>&1; then
+    PARSER="jq"
     TARGET_FILE="$(printf '%s' "$INPUT" | jq -r '.toolCall.args.TargetFile? // empty' 2>/dev/null)"
     TF_OK=$?
     printf '%s' "$INPUT" | jq -r '
@@ -90,6 +139,7 @@ if command -v jq >/dev/null 2>&1; then
         PARSE_OK=1
     fi
 elif command -v python3 >/dev/null 2>&1 || command -v python >/dev/null 2>&1; then
+    PARSER="py"
     PY="$(command -v python3 || command -v python)"
     PY_SRC=$(cat <<'PYEOF'
 import json, sys
@@ -132,11 +182,59 @@ fi
 
 [ "$PARSE_OK" -eq 1 ] || allow   # malformed/unparseable stdin -> fail open
 
-# ---- Scope check: only paths under skills/ are in-law (any depth, either
-# slash direction so a Windows-style TargetFile still normalizes correctly).
+# Best-effort workspace-root extraction (payload's workspacePaths[0], per
+# the documented PreToolUse stdin shape -- see the header contract note).
+# Independent of the TARGET_FILE/content extraction above: a miss or
+# malformed field here never blocks the check, it just means the
+# relative-path join below falls back to $PWD, same as if the payload never
+# carried the field at all. Reuses whichever parser already won above ($PY
+# stays set from the elif branch when PARSER="py").
+if [ "$PARSER" = "jq" ]; then
+    WORKSPACE_ROOT="$(printf '%s' "$INPUT" | jq -r '.workspacePaths[0]? // empty' 2>/dev/null)"
+else
+    WORKSPACE_ROOT="$(printf '%s' "$INPUT" | "$PY" -c '
+import json, sys
+try:
+    data = json.load(sys.stdin)
+except Exception:
+    sys.exit(0)
+wp = data.get("workspacePaths") if isinstance(data, dict) else None
+if isinstance(wp, list) and wp and isinstance(wp[0], str):
+    sys.stdout.write(wp[0])
+' 2>/dev/null)"
+fi
+
+# ---- Scope check: absolutize + normalize TARGET_FILE, then require it be
+# under THIS plugin's own skills/ tree specifically (not merely named
+# skills/ somewhere) -- any depth, either slash direction so a
+# Windows-style TargetFile still normalizes correctly.
 NORM_PATH="$(printf '%s' "$TARGET_FILE" | tr '\\' '/')"
+
 case "$NORM_PATH" in
-    skills/*|*/skills/*) : ;;   # in scope, fall through to content check
+    "")
+        allow   # no target path at all -> nothing to anchor, fail open
+        ;;
+    /*)
+        ABS_PATH="$NORM_PATH"
+        ;;
+    [A-Za-z]:/*)
+        ABS_PATH="$(normalize_drive "$NORM_PATH")"
+        ;;
+    *)
+        # Relative path: join onto the payload's workspace root
+        # (workspacePaths[0], extracted above) if it carried one, else onto
+        # this process's own $PWD.
+        JOIN_BASE="$WORKSPACE_ROOT"
+        [ -n "$JOIN_BASE" ] || JOIN_BASE="$PWD"
+        JOIN_BASE="$(normalize_drive "$(printf '%s' "$JOIN_BASE" | tr '\\' '/')")"
+        JOIN_BASE="${JOIN_BASE%/}"
+        [ -n "$JOIN_BASE" ] || allow   # nothing to join onto -> ambiguous, fail open
+        ABS_PATH="$JOIN_BASE/$NORM_PATH"
+        ;;
+esac
+
+case "$ABS_PATH" in
+    "$PLUGIN_ROOT_NORM"/skills/*) : ;;   # in scope: under THIS plugin's own skills/, fall through to content check
     *) allow ;;
 esac
 
