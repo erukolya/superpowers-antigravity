@@ -21,6 +21,14 @@ Reviewed every tool call and capability claim in the skills against the official
 * Removed claims the platform doesn't back: `schedule` timers don't auto-cancel when a subagent replies, background tasks don't push completion notifications (check `manage_task` status on a `schedule` cadence instead), and `Workspace` has no documented default value.
 * `/browser` is the only way to invoke the sandboxed browser subagent, and it doesn't add browser tools to your session — `browser-testing` now describes it correctly.
 
+### Fixes
+
+* **Skill docs, README, and test invocations now match reality.** `writing-skills` teaches the actual documented skill directory locations and native frontmatter spec instead of stale ones; the README's verify step is a command that actually runs, with working CLI plugin-install instructions beside it; and the `tests/antigravity` suite's `agy` invocations finally carry the flags headless runs always needed (`--print-timeout`, `--dangerously-skip-permissions`) instead of hanging or stalling on an interactive review prompt.
+
+### Features
+
+* **Native rule bootstrap, an edit-time purity gate, and tighter subagent handling.** The `using-superpowers` bootstrap now ships as an Always-On rule, so every session gets it without depending on documentation load order. A `PreToolUse` hook blocks writes that would reintroduce banned vocabulary into `skills/` before they land, enforcing the same check CI already runs. Subagent-driven development now recognizes a terminal error state distinct from idle (dispatch fresh rather than resume) and treats inline artifact comments as change requests during plan and spec review, not just chat replies.
+
 ### Not Ported from Upstream v6.2.0
 
 * **Windows SessionStart hook fix** — no `hooks/` in this fork; the GEMINI.md bootstrap is already line-ending-safe.

@@ -10,6 +10,8 @@ This test suite validates that Superpowers skills work correctly on Antigravity 
 - **Skill triggering** — Tests that naive prompts trigger the correct skill
 - **Subagent dispatch** — Validates the `subagent-driven-development` workflow using `invoke_subagent`
 - **Skill tool purity** — Static validation that skill files contain no legacy tool names or platform references
+- **Purity hook (behavioral)** — Fixture-driven validation that the `PreToolUse` purity gate denies banned-vocabulary writes into `skills/` at edit time and allows everything else
+- **Rule/skill mirror sync** — Static validation that the Always-On rule bootstrap mirrors `skills/using-superpowers/SKILL.md` exactly
 - **Workspace isolation** — Confirms worktree/branch workspace guidance works
 
 ## Prerequisites
