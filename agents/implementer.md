@@ -114,6 +114,7 @@ When done, report:
 - What you implemented (or what you attempted, if blocked)
 - What you tested and test results
 - Files changed
+- Task branch name and commit range (`<base7>..<head7>`)
 - Self-review findings (if any)
 - Any issues or concerns
 

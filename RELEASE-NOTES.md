@@ -1,6 +1,6 @@
 # Superpowers Release Notes
 
-## v6.2.0 (2026-07-29)
+## v6.2.0 (2026-07-30)
 
 ### Upstream v6.2.0 Sync
 
@@ -8,7 +8,7 @@
 * **`finishing-a-development-branch` no longer offers to discard your work.** The completion menu is now merge / PR / keep; discarding happens only when you explicitly ask for it, confirmed by typing `discard`. (The confirmation previously used `ask_permission`, which requests scoped resource permissions — it isn't a confirmation dialog.) PR creation is forge-agnostic: use your forge's CLI or the URL printed on push, instead of a hardcoded `gh` invocation with a heredoc that PowerShell can't parse. Also fixed worktree cleanup: the worktree path was consumed but never captured, so cleanup always failed with the worktree still attached — it's now captured before the directory change, and ownership checks are anchored at the repo root so platform-managed worktrees can never be matched for removal.
 * **`testing-anti-patterns.md` is now `writing-good-tests.md`.** Upstream's positive rewrite of the TDD reference: name the production change that would fail each test, exercise the real thing instead of mocks, and finish with a mutation check. TDD's "Why Order Matters" section is folded into the Common Rationalizations table, with each row carrying the full argument instead of a one-liner.
 * **`find-polluter.sh` actually finds test files now.** The documented pattern never matched (`find .` emits `./`-prefixed paths) and empty results counted as one file, so the script reported a clean suite without running a single test. Fixed, and patterns like `src/**/*.test.ts` now also match files directly under the base directory. Ships with a test suite (`tests/systematic-debugging/test-find-polluter.sh`) that runs without `agy`. `assert_order` in the test helpers now dumps output on failure so flakes are diagnosable.
-* **SDD: resume-based fix loop and plan-scoped ledger.** Fix rounds resume the idle implementer instead of dispatching a fresh one — no context rebuild per round — and every round ends with a scoped re-review that verifies the fixes rather than re-reading the whole task, capped at five rounds per task before the controller adjudicates. Progress ledgers are now per-plan (`.superpowers/sdd/<plan>/`), actually git-ignored, and deleted once the final review is clean. The four SDD roles ship as bundled Antigravity agents — no per-session registration.
+* **SDD: resume-based fix loop and plan-scoped ledger.** Fix rounds resume the idle implementer instead of dispatching a fresh one — no context rebuild per round — and every round ends with a scoped re-review that verifies the fixes rather than re-reading the whole task, capped at five rounds per task before the controller adjudicates. Progress ledgers are now per-plan (`.superpowers/sdd/<plan>/`), actually git-ignored, and deleted once the final review is clean. The four SDD roles ship as bundled Antigravity agents — no per-session registration. Upstream's file-handoff implementation (scripts, brief/report files) was not portable — branch-isolated implementers cannot read gitignored directories — so the outcomes are delivered natively instead.
 
 ### Antigravity 2.0 API Corrections
 
@@ -23,7 +23,6 @@ Reviewed every tool call and capability claim in the skills against the official
 
 ### Not Ported from Upstream v6.2.0
 
-* **SDD plan-scoped workspace and resume-based fix loop** — upstream builds both on the `scripts/` file-handoff layer removed here in v6.0.0 (branch-isolated implementers can't read gitignored directories).
 * **Windows SessionStart hook fix** — no `hooks/` in this fork; the GEMINI.md bootstrap is already line-ending-safe.
 * **Gemini CLI restoration, Codex packaging fix, mapping-test scoping** — they patch infrastructure this fork deleted in v6.0.0.
 

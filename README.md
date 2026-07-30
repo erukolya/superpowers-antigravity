@@ -68,7 +68,7 @@ The abstraction layer costs tokens on every interaction, and those costs compoun
 | **Plan formatting** | Plain markdown | Mermaid diagrams, file links, diff blocks, GitHub alerts |
 | **Background tasks** | Not documented | `manage_task`, `send_message`, `schedule` (incl. cron) |
 | **UI verification** | Not available | `browser-testing` skill with screenshot evidence |
-| **Read-only subagents** | Full tool set for all | `TypeName: "research"` for reviewers |
+| **Read-only subagents** | Full tool set for all | Bundled read-only reviewer agents (plus `TypeName: "research"` ad-hoc) |
 | **Web research** | Not guided | `search_web` + `read_url_content` integrated |
 
 ### Core Enhancements

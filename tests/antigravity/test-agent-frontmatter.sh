@@ -26,7 +26,7 @@ for f in "$AGENTS_DIR"/*.md; do
   model="$(sed -n 's/^model: *//p' "$f" | head -1)"
   case "$model" in inherit|flash|pro) pass "$base: model '$model' valid";; *) fail "$base: model '$model' not in inherit|flash|pro";; esac
   # tools entries: lines beginning "  - " between "tools:" and the next top-level key
-  tools="$(awk '/^tools:/{t=1;next} t&&/^[a-z]/{exit} t&&/^  - /{print $2}' "$f")"
+  tools="$(awk '/^tools:/{t=1;next} t&&(/^[a-zA-Z]/||/^---$/){exit} t&&/^[[:space:]]*- /{print $2}' "$f")"
   for tool in $tools; do
     case " $KNOWN_TOOLS " in
       *" $tool "*) pass "$base: tool '$tool' known";;

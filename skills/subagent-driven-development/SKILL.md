@@ -47,7 +47,8 @@ digraph process {
         "Spec reviewer subagent confirms code matches spec?" [shape=diamond];
         "invoke_subagent TypeName: code-reviewer" [shape=box];
         "Code quality reviewer subagent approves?" [shape=diamond];
-        "Fix loop: resume implementer, scoped re-review (max 5 rounds/task)" [shape=box];
+        "Fix loop (spec): resume implementer, scoped re-review (max 5 rounds/task)" [shape=box];
+        "Fix loop (quality): resume implementer, scoped re-review (max 5 rounds/task)" [shape=box];
         "Update task.md artifact" [shape=box];
     }
 
@@ -63,12 +64,12 @@ digraph process {
     "Implementer subagent asks questions?" -> "Implementer subagent implements, tests, commits, self-reviews" [label="no"];
     "Implementer subagent implements, tests, commits, self-reviews" -> "invoke_subagent TypeName: spec-reviewer";
     "invoke_subagent TypeName: spec-reviewer" -> "Spec reviewer subagent confirms code matches spec?";
-    "Spec reviewer subagent confirms code matches spec?" -> "Fix loop: resume implementer, scoped re-review (max 5 rounds/task)" [label="no"];
-    "Fix loop: resume implementer, scoped re-review (max 5 rounds/task)" -> "Spec reviewer subagent confirms code matches spec?" [label="round clean"];
+    "Spec reviewer subagent confirms code matches spec?" -> "Fix loop (spec): resume implementer, scoped re-review (max 5 rounds/task)" [label="no"];
+    "Fix loop (spec): resume implementer, scoped re-review (max 5 rounds/task)" -> "Spec reviewer subagent confirms code matches spec?" [label="round clean"];
     "Spec reviewer subagent confirms code matches spec?" -> "invoke_subagent TypeName: code-reviewer" [label="yes"];
     "invoke_subagent TypeName: code-reviewer" -> "Code quality reviewer subagent approves?";
-    "Code quality reviewer subagent approves?" -> "Fix loop: resume implementer, scoped re-review (max 5 rounds/task)" [label="no"];
-    "Fix loop: resume implementer, scoped re-review (max 5 rounds/task)" -> "Code quality reviewer subagent approves?" [label="round clean"];
+    "Code quality reviewer subagent approves?" -> "Fix loop (quality): resume implementer, scoped re-review (max 5 rounds/task)" [label="no"];
+    "Fix loop (quality): resume implementer, scoped re-review (max 5 rounds/task)" -> "Code quality reviewer subagent approves?" [label="round clean"];
     "Code quality reviewer subagent approves?" -> "Update task.md artifact" [label="yes"];
     "Update task.md artifact" -> "More tasks remain?";
     "More tasks remain?" -> "invoke_subagent TypeName: implementer" [label="yes"];
@@ -88,6 +89,11 @@ digraph process {
   `<repo-root>/.superpowers/sdd/<plan-basename>/` (plan filename without
   `.md`). Create it and the self-ignore rule in one command:
   `mkdir -p .superpowers/sdd/<plan-basename> && printf '*\n' > .superpowers/.gitignore`
+
+Then open the ledger:
+
+- If `progress.md` exists in this plan's directory, read it — tasks it marks complete are DONE; resume at the first task not marked complete.
+- If it does not exist, create it now with its header line: `# SDD ledger — plan: <plan file path>`.
 
 The four roles ship as bundled agents — `implementer`, `spec-reviewer`,
 `code-reviewer`, `re-reviewer` (defined in the plugin's `agents/`
@@ -123,7 +129,7 @@ conflicts that only emerge from implementation.
 
 ## Model Selection
 
-Model tiers are set only in custom-agent `.md` frontmatter (`model: flash|pro|inherit`) in `.agents/agents/<name>.md` — `invoke_subagent` does not take a model argument. Bundled and custom types alike run at whatever tier their agent file sets; to differentiate tiers, ship the role as a custom agent file and dispatch that TypeName.
+Model tiers are set in each agent file's frontmatter (`model: flash|pro|inherit`). The four bundled roles live in the plugin's `agents/` directory and all ship `model: inherit` — the session's model governs. To differentiate tiers, edit those files, or add a workspace-scoped variant at `.agents/agents/<name>.md`. Neither `define_subagent` nor `invoke_subagent` takes a model argument.
 
 Use the least powerful tier that can handle each role to conserve cost and increase speed.
 
@@ -139,6 +145,12 @@ Use the least powerful tier that can handle each role to conserve cost and incre
 - Requires design judgment or broad codebase understanding → pro-tier agent type
 
 ## The Task Loop
+
+For each task, in plan order:
+
+1. Fill `implementer-prompt.md`'s dynamic template with the task's full text and scene-setting context, then dispatch: `invoke_subagent(Subagents: [{TypeName: "implementer", Role: "Implement Task <N>", Prompt: <filled template>, Workspace: "branch"}])`.
+2. **Record the implementer's conversation ID and its task branch name from the dispatch result** — the fix loop and the ledger's commit range depend on both.
+3. When the implementer reports DONE, run the two review stages in order: `spec-reviewer` first, then `code-reviewer` (dispatch templates in Prompt Templates below). Findings from either stage enter The Fix Loop.
 
 **Never:**
 - Dispatch multiple implementation subagents in parallel (conflicts)
@@ -157,7 +169,7 @@ Implementer subagents report one of four statuses. Handle each appropriately:
 
 **BLOCKED:** The implementer cannot complete the task. Assess the blocker:
 1. If it's a context problem, resume or re-dispatch with more context
-2. If the task requires more reasoning, dispatch a custom agent type whose frontmatter sets a more capable tier (`model: pro`)
+2. If the task requires more reasoning, raise the agent's tier (edit the bundled agent's frontmatter to `model: pro`, or add a workspace-scoped variant) and re-dispatch
 3. If the task is too large, break it into smaller pieces
 4. If the plan itself is wrong, escalate to the user
 
