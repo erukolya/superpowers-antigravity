@@ -395,6 +395,19 @@ Antigravity 2.0 session transcripts differ from Claude Code in several ways:
 
 ### Finding Antigravity Transcripts
 
+> **Annotation:** the `brain/` path and `transcript.jsonl` format referenced
+> in this section (and in the table above) are empirically observed by
+> watching the filesystem while using the CLI, not documented Antigravity
+> API — none of it appears on https://antigravity.google/docs. By contrast,
+> `~/.gemini/antigravity-cli/cache/last_conversations.json` *is* documented
+> (CLI Resume Command guide) as "A JSON map associating absolute workspace
+> directory paths with their most recently active conversation ID," and
+> `tests/antigravity/test-helpers.sh`'s `find_transcript` now uses it as a
+> deterministic, workspace-scoped primary lookup, falling back to the
+> mtime scan below only when the cache file/entry isn't available. See
+> `tests/antigravity/README.md` for the full detail. This file is otherwise
+> unchanged pending a fuller refresh.
+
 ```bash
 # Recent transcripts (last 60 minutes)
 find ~/.gemini/antigravity/brain -name "transcript.jsonl" -mmin -60

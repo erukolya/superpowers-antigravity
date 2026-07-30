@@ -17,6 +17,40 @@ This test suite validates that Superpowers skills work correctly on Antigravity 
 1. **Antigravity CLI** (`agy`) must be installed and available on `$PATH`
 2. **Superpowers plugin** must be symlinked or copied into `~/.gemini/config/plugins/superpowers/`
 3. **bash** 4.0+ with standard GNU utils (`grep`, `sed`, `timeout`, `jq`)
+   - `jq` is genuinely exercised now, not just listed: `find_transcript`'s
+     cache lookup and `test-skill-triggering/run-test.sh`'s event-based
+     Check 3 both prefer it, falling back to `python3`/`python` and then a
+     best-effort `grep`/`awk` extraction if neither is present -- the
+     suite never hard-fails on a machine without `jq`.
+
+### Environment Variables
+
+Two optional env vars pin model/effort for a whole test run:
+
+| Variable | Passed as | Values |
+|----------|-----------|--------|
+| `AGY_TEST_MODEL`  | `--model`  | A model slug (see `agy models`) |
+| `AGY_TEST_EFFORT` | `--effort` | `low`, `medium`, or `high` |
+
+### Headless Invocation Flags
+
+Every `agy --print` call in this suite (`run_antigravity` in
+`test-helpers.sh`, and the direct invocation in `test-subagent-dispatch.sh`)
+always passes:
+
+- **`--print-timeout <N>m`** — headless `agy --print` self-terminates after
+  agy's own documented default of 5 minutes if this isn't raised. The
+  documented flag reference shows only whole-minute durations (default
+  `5m`, example `--print-timeout 15m`), so this suite rounds requested
+  second-based budgets up to the nearest minute rather than passing seconds
+  directly. The external `timeout` wrapper is kept as a backstop for hangs
+  that occur before agy's own timeout can engage, widened so it's never
+  tighter than the internal budget it backstops.
+- **`--dangerously-skip-permissions`** — without it, agy's default
+  permission mode pauses for interactive diff review, which hangs
+  indefinitely for any test that writes files.
+
+Source: https://antigravity.google/docs/cli/headless ("Flag reference" table).
 
 ### Plugin Installation
 
@@ -71,6 +105,13 @@ cd tests/antigravity
 
 ## Session Transcript Format
 
+> **Not documented API.** The `brain/` directory layout, `transcript.jsonl`,
+> and the field names below were learned by watching the filesystem while
+> using the CLI — none of it appears on https://antigravity.google/docs.
+> Treat this section as empirically observed behavior that could change
+> without notice, not a stable, published contract. (Contrast with
+> `last_conversations.json` below, which the CLI's docs do describe.)
+
 Antigravity 2.0 stores session transcripts as **JSONL** files at:
 
 ```
@@ -112,8 +153,19 @@ Each line is a JSON object with these key fields:
 
 ### Finding transcripts
 
+`find_transcript` (in `test-helpers.sh`) now resolves the transcript
+deterministically first, via the CLI's *documented*
+`~/.gemini/antigravity-cli/cache/last_conversations.json` — "A JSON map
+associating absolute workspace directory paths with their most recently
+active conversation ID" per the CLI's Resume Command guide — before falling
+back to the mtime scan below (which isn't workspace-scoped and can pick up
+an unrelated, concurrently-running conversation):
+
 ```bash
-# Find recent transcripts (last 60 minutes)
+# Primary (documented): cache keyed by absolute workspace path
+jq -r --arg ws "$PWD" '.[$ws] // empty' ~/.gemini/antigravity-cli/cache/last_conversations.json
+
+# Fallback (not documented): most-recently-modified transcript in a window
 find ~/.gemini/antigravity/brain -name "transcript.jsonl" -mmin -60
 
 # Search for specific tool calls in a transcript
@@ -146,10 +198,20 @@ If not installed, the test scripts will detect this and print a helpful error me
 - Skills auto-load in Antigravity; there's no explicit `Skill` tool call to grep for
 - Instead, look for evidence the skill was read (`view_file` on `SKILL.md`) or skill name mentions in output
 - Check that the plugin directory structure is correct: `skills/<skill-name>/SKILL.md`
+- `run-test.sh`'s authoritative check parses a `view_file` tool-call event
+  from an `--output-format stream-json` NDJSON capture — tool calls are not
+  reliably visible in plain `text` output at all, so if you're debugging a
+  triggering failure, inspect `agy-stream.jsonl` in the test's output
+  directory, not `agy-output.txt`
 
 ### Transcript not found
 
-Antigravity stores transcripts under `~/.gemini/antigravity/brain/`. Each conversation gets a UUID directory:
+`find_transcript` tries the documented `last_conversations.json` cache
+first (see "Finding transcripts" above); if that cache file is missing, has
+no entry for the current workspace, or `jq`/`python3`/`python` are all
+unavailable, it falls back to the empirically-observed
+`~/.gemini/antigravity/brain/` layout. Each conversation gets a UUID
+directory:
 
 ```bash
 # List recent conversations

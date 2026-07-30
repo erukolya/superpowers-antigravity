@@ -5,11 +5,22 @@
 # Tests whether Antigravity triggers a skill based on a natural prompt
 # (without explicitly mentioning the skill name)
 #
-# In Antigravity, skills auto-load from plugins. There is no explicit
-# "Skill" tool call. Instead, we look for:
+# In Antigravity, skills auto-load from plugins -- there is no explicit
+# "Skill" tool call -- so detection here is transcript/event-based rather
+# than prose-based. The authoritative signal (Check 3) is a `view_file`
+# tool-call event, parsed from an `agy --output-format stream-json` NDJSON
+# capture, that targets the skill's own SKILL.md. Tool calls are not
+# reliably visible in plain `text`-format output at all (docs:
+# https://antigravity.google/docs/cli/headless -- "Set --output-format
+# stream-json to emit one JSON object per line (NDJSON) as the run
+# progresses"), which is why earlier versions of this test -- grepping
+# prose output for "view_file"/"SKILL.md" -- could never really pass.
+#
+# Secondary, informational-only signals (not authoritative; retained only
+# as a fallback for when the stream-json capture itself is unavailable):
 #   - Skill name mentions in the output text
 #   - "I'm using the" / "using the ... skill" announcements
-#   - view_file calls on SKILL.md files
+#   - SKILL.md mentions in prose
 #   - Behavioral evidence (e.g., subagent dispatch for dispatching-parallel-agents)
 
 set -e
@@ -56,83 +67,135 @@ echo ""
 # Copy prompt for reference
 cp "$PROMPT_FILE" "$OUTPUT_DIR/prompt.txt"
 
-# Run Antigravity
+# Run Antigravity. Two captures of the same prompt: the default (text)
+# capture via run_antigravity feeds the informational prose checks below;
+# a second, explicit --output-format stream-json capture to its own file
+# feeds the authoritative event-based Check 3. (Two agy invocations means
+# two model runs -- accepted here because the two capture formats can't
+# both come from a single `agy` process per the documented --output-format
+# flag, which selects exactly one wire format per run.)
 LOG_FILE="$OUTPUT_DIR/agy-output.txt"
+STREAM_FILE="$OUTPUT_DIR/agy-stream.jsonl"
 cd "$OUTPUT_DIR"
 
-echo "Running agy --print with naive prompt..."
+echo "Running agy --print with naive prompt (text capture)..."
 OUTPUT=$(run_antigravity "$PROMPT" "$TIMEOUT") || true
 echo "$OUTPUT" > "$LOG_FILE"
+
+echo "Running agy --print with naive prompt (stream-json capture for event detection)..."
+STREAM_OUTPUT=$(run_antigravity "$PROMPT" "$TIMEOUT" "stream-json") || true
+echo "$STREAM_OUTPUT" > "$STREAM_FILE"
+
+STREAM_CAPTURE_OK=false
+if [ -s "$STREAM_FILE" ]; then
+    STREAM_CAPTURE_OK=true
+fi
 
 echo ""
 echo "=== Results ==="
 echo ""
 
 TRIGGERED=false
+EVENT_CHECK_RAN=false
 
-# Detection strategy for Antigravity:
-# 1. Check for skill name mentions in output text
-# 2. Check for "using the ... skill" announcements
-# 3. Check for SKILL.md file reads (skill was loaded)
-# 4. Check for skill-specific behavioral evidence
+# --- Check 3 (authoritative): view_file tool event on the skill's SKILL.md ---
+# Pattern per the transcript/event-based detection design: grep the NDJSON
+# for a tool-call event named "view_file" whose payload also mentions
+# "<skill-name>/SKILL" (i.e. it opened this skill's own SKILL.md). jq is
+# used when available for a more structure-tolerant match; otherwise the
+# two-stage grep below is the literal fallback.
+SKILL_MD_PATTERN="${SKILL_NAME}/SKILL"
+
+if [ "$STREAM_CAPTURE_OK" = "true" ]; then
+    EVENT_CHECK_RAN=true
+    if command -v jq &>/dev/null; then
+        VIEW_FILE_HIT=$(jq -c '.. | objects | select(.name? == "view_file")' "$STREAM_FILE" 2>/dev/null | grep -F "$SKILL_MD_PATTERN" || true)
+    else
+        VIEW_FILE_HIT=$(grep -E '"name" *: *"view_file"' "$STREAM_FILE" 2>/dev/null | grep -F "$SKILL_MD_PATTERN" || true)
+    fi
+
+    if [ -n "$VIEW_FILE_HIT" ]; then
+        echo "  [EVENT] view_file(${SKILL_NAME}/SKILL.md) found in stream-json transcript"
+        TRIGGERED=true
+    else
+        echo "  [EVENT] No view_file event targeting ${SKILL_NAME}/SKILL.md found in stream-json transcript"
+    fi
+else
+    echo "  [EVENT] stream-json capture unavailable -- falling back to informational prose checks below"
+fi
+
+# --- Checks 1, 2, 4 (informational only -- do NOT set TRIGGERED on their
+# own; they're prone to both false positives (the model can name-drop a
+# skill without using it) and false negatives (tool calls don't reliably
+# show up in `text` output). They only decide TRIGGERED as a genuine
+# fallback, when the authoritative event check above couldn't run at all. ---
+INFO_HIT=false
 
 # Check 1: Direct skill name mention
 if echo "$OUTPUT" | grep -qi "$SKILL_NAME"; then
-    echo "  ✓ Skill name '$SKILL_NAME' mentioned in output"
-    TRIGGERED=true
+    echo "  (info) Skill name '$SKILL_NAME' mentioned in output"
+    INFO_HIT=true
 fi
 
 # Check 2: "I'm using" / "using the" skill announcements
 if echo "$OUTPUT" | grep -qiE "(I'm using|using the|I will use|invoking|activating).*${SKILL_NAME}"; then
-    echo "  ✓ Skill usage announcement detected"
-    TRIGGERED=true
+    echo "  (info) Skill usage announcement detected"
+    INFO_HIT=true
 fi
 
-# Check 3: SKILL.md file read (skill was loaded from plugin)
+# Check 2b (legacy "Check 3"): SKILL.md mention in prose. Superseded by the
+# event-based Check 3 above; kept only as an informational signal since
+# tool calls aren't reliably visible in text-format output at all.
 if echo "$OUTPUT" | grep -qi "SKILL.md"; then
-    echo "  ✓ SKILL.md file reference detected"
-    TRIGGERED=true
+    echo "  (info) SKILL.md file reference detected in prose output"
+    INFO_HIT=true
 fi
 
 # Check 4: Skill-specific behavioral evidence
 case "$SKILL_NAME" in
     dispatching-parallel-agents|subagent-driven-development)
         if echo "$OUTPUT" | grep -qi "subagent\|invoke_subagent\|parallel"; then
-            echo "  ✓ Subagent dispatch behavior detected"
-            TRIGGERED=true
+            echo "  (info) Subagent dispatch behavior detected"
+            INFO_HIT=true
         fi
         ;;
     systematic-debugging)
         if echo "$OUTPUT" | grep -qiE "hypothes[ie]s|bisect|isolat|diagnos"; then
-            echo "  ✓ Systematic debugging behavior detected"
-            TRIGGERED=true
+            echo "  (info) Systematic debugging behavior detected"
+            INFO_HIT=true
         fi
         ;;
     test-driven-development)
         if echo "$OUTPUT" | grep -qiE "red.green.refactor|test.first|write.*test.*before"; then
-            echo "  ✓ TDD behavior detected"
-            TRIGGERED=true
+            echo "  (info) TDD behavior detected"
+            INFO_HIT=true
         fi
         ;;
     writing-plans)
         if echo "$OUTPUT" | grep -qiE "implementation.plan|plan.*task|break.*down"; then
-            echo "  ✓ Planning behavior detected"
-            TRIGGERED=true
+            echo "  (info) Planning behavior detected"
+            INFO_HIT=true
         fi
         ;;
     requesting-code-review)
         if echo "$OUTPUT" | grep -qiE "code.review|review.*code|reviewer"; then
-            echo "  ✓ Code review behavior detected"
-            TRIGGERED=true
+            echo "  (info) Code review behavior detected"
+            INFO_HIT=true
         fi
         ;;
     brainstorming)
         if echo "$OUTPUT" | grep -qiE "brainstorm|ideas|options|approaches|alternatives"; then
-            echo "  ✓ Brainstorming behavior detected"
-            TRIGGERED=true
+            echo "  (info) Brainstorming behavior detected"
+            INFO_HIT=true
         fi
         ;;
 esac
+
+# Informational prose evidence only decides TRIGGERED when the authoritative
+# event-based check could not run at all (stream-json capture unavailable).
+if [ "$EVENT_CHECK_RAN" = "false" ] && [ "$INFO_HIT" = "true" ]; then
+    TRIGGERED=true
+fi
 
 echo ""
 if [ "$TRIGGERED" = "true" ]; then

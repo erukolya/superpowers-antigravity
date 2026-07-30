@@ -132,9 +132,30 @@ IMPORTANT: Follow the skill exactly. I will be verifying that you:
 
 Begin now. Execute the plan."
 
+# agy's own --print-timeout documents only whole-minute durations (default
+# "5m", example "--print-timeout 15m" -- no seconds unit is ever shown), so
+# round this test's 1800s (30 minute) budget up to the nearest whole minute.
+# The external `timeout` wrapper stays as a backstop for hangs that happen
+# before agy's own --print-timeout can engage, so it must not be tighter
+# than the internal budget it is backstopping.
+AGY_BUDGET_SECS=1800
+PRINT_TIMEOUT_MINUTES=$(( (AGY_BUDGET_SECS + 59) / 60 ))
+EXTERNAL_TIMEOUT_SECS=$(( PRINT_TIMEOUT_MINUTES * 60 + 60 ))
+
+# --dangerously-skip-permissions is required here too: without it, agy's
+# default permission mode pauses for interactive diff review, which hangs
+# indefinitely since this test writes files (src/hello.js, tests, commits).
+AGY_ARGS=(--print "$PROMPT" --print-timeout "${PRINT_TIMEOUT_MINUTES}m" --dangerously-skip-permissions)
+if [ -n "${AGY_TEST_MODEL:-}" ]; then
+    AGY_ARGS+=(--model "$AGY_TEST_MODEL")
+fi
+if [ -n "${AGY_TEST_EFFORT:-}" ]; then
+    AGY_ARGS+=(--effort "$AGY_TEST_EFFORT")
+fi
+
 echo "Running agy (cwd: $TEST_PROJECT)..."
 echo "================================================================================"
-cd "$TEST_PROJECT" && timeout 1800 agy --print "$PROMPT" 2>&1 | tee "$OUTPUT_FILE" || {
+cd "$TEST_PROJECT" && timeout "$EXTERNAL_TIMEOUT_SECS" agy "${AGY_ARGS[@]}" 2>&1 | tee "$OUTPUT_FILE" || {
     echo ""
     echo "================================================================================"
     echo "EXECUTION COMPLETED (exit code: $?)"
@@ -161,8 +182,12 @@ if echo "$(cat "$OUTPUT_FILE")" | grep -qiE "invoke_subagent|subagent|dispatchin
     echo "  [PASS] Subagent dispatch evidence found in output"
     PASSED=$((PASSED + 1))
 else
-    # Fall back to transcript check
-    TRANSCRIPT=$(find_transcript 60 2>/dev/null) || true
+    # Fall back to transcript check. Pass $TEST_PROJECT explicitly -- that's
+    # the workspace agy was actually invoked from (see the `cd "$TEST_PROJECT"`
+    # above) -- so find_transcript's cache-based lookup resolves the right
+    # conversation deterministically instead of relying on $PWD happening to
+    # still match at this point in the script.
+    TRANSCRIPT=$(find_transcript 60 "$TEST_PROJECT" 2>/dev/null) || true
     if [ -n "$TRANSCRIPT" ] && transcript_has_tool "$TRANSCRIPT" "invoke_subagent"; then
         echo "  [PASS] invoke_subagent found in transcript"
         PASSED=$((PASSED + 1))
