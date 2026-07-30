@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "./hooks/purity-check.sh",
+            "command": "bash ./hooks/purity-check.sh",
             "timeout": 10
           }
         ]

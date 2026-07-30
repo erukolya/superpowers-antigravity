@@ -24,19 +24,25 @@ echo "========================================"
 echo ""
 
 [ -f "$HOOK" ] || { echo "  [FAIL] hook not found: $HOOK"; exit 1; }
-[ -x "$HOOK" ] || { echo "  [FAIL] hook not executable: $HOOK"; exit 1; }
 
 FAILURES=0
 pass() { echo "  [PASS] $1"; }
 fail() { echo "  [FAIL] $1"; FAILURES=$((FAILURES + 1)); }
 
+# Invoked as `bash "$HOOK"`, not `"$HOOK"` directly, and NOT gated on the
+# executable bit: this repo has core.fileMode=false (confirmed against an
+# existing tracked sibling script, also 100644), so a fresh clone/checkout
+# never carries the exec bit regardless of local `chmod +x`. hooks.json's
+# own "command" invokes the script the same way ("bash ./hooks/purity-check.sh")
+# for the same reason -- this test exercises the real invocation path.
+#
 # run_hook <payload> -- sets HOOK_OUT / HOOK_CODE. Written to survive
 # `set -e`: the failure branch of the hook call (which should never
 # actually happen, since the hook always exits 0 by design) is captured
 # via an `if`, one of the contexts errexit does not fire inside.
 run_hook() {
     local payload="$1"
-    if HOOK_OUT="$(printf '%s' "$payload" | "$HOOK")"; then
+    if HOOK_OUT="$(printf '%s' "$payload" | bash "$HOOK")"; then
         HOOK_CODE=0
     else
         HOOK_CODE=$?
