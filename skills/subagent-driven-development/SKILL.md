@@ -84,20 +84,6 @@ digraph process {
 **Never:**
 - Start implementation on main/master branch without explicit user consent
 
-### Pre-Flight Plan Review
-
-Before dispatching Task 1, scan the plan once for conflicts:
-
-- tasks that contradict each other or the plan's Global Constraints
-- anything the plan explicitly mandates that the review rubric treats as a
-  defect (a test that asserts nothing, verbatim duplication of a logic block)
-
-Present everything you find to your human partner as one batched question —
-each finding beside the plan text that mandates it, asking which governs —
-before execution begins, not one interrupt per discovery mid-plan. If the
-scan is clean, proceed without comment. The review loop remains the net for
-conflicts that only emerge from implementation.
-
 - At skill start, resolve this plan's workspace:
   `<repo-root>/.superpowers/sdd/<plan-basename>/` (plan filename without
   `.md`). Create it and the self-ignore rule in one command:
@@ -120,6 +106,20 @@ discovered — verify the plugin installation before working around it.
 
 Read the plan once, extract all tasks with full text and context, and
 create a `task.md` artifact tracking each task's status.
+
+### Pre-Flight Plan Review
+
+Before dispatching Task 1, scan the plan once for conflicts:
+
+- tasks that contradict each other or the plan's Global Constraints
+- anything the plan explicitly mandates that the review rubric treats as a
+  defect (a test that asserts nothing, verbatim duplication of a logic block)
+
+Present everything you find to your human partner as one batched question —
+each finding beside the plan text that mandates it, asking which governs —
+before execution begins, not one interrupt per discovery mid-plan. If the
+scan is clean, proceed without comment. The review loop remains the net for
+conflicts that only emerge from implementation.
 
 ## Model Selection
 
@@ -335,7 +335,7 @@ that lost their place have re-dispatched entire completed task sequences — the
 single most expensive failure observed. Track progress in a ledger file, not
 only in todos.
 
-- The ledger is `progress.md` inside that directory. Its first line names
+- The ledger is `progress.md` inside this plan's workspace directory (resolved in Setup). Its first line names
   the plan: `# SDD ledger — plan: <plan file path>`. A ledger whose first
   line names a different plan — or a stray ledger at the old flat
   `.superpowers/sdd/progress.md` — is another plan's progress: leave it and
@@ -452,10 +452,10 @@ Re-reviewer: Both findings ADDRESSED. No new breakage in fix diff.
 Code reviewer: Strengths: Solid. Issues (Important): Magic number (100)
 
 [send_message to implementer conversation: findings verbatim]
-Implementer (resumed): Extracted PROGRESS_INTERVAL constant. Re-ran full suite: 8/8 passing.
+Implementer (resumed): Extracted PROGRESS_INTERVAL constant. Re-ran full suite: 9/9 passing.
 [invoke_subagent TypeName: "re-reviewer" — findings + fix range]
 Re-reviewer: Finding ADDRESSED. No new breakage in fix diff.
-[Ledger: Task 2: fix round 1/5 (quality: magic number extraction)]
+[Ledger: Task 2: fix round 2/5 (quality: magic number extraction)]
 
 [Update task.md: mark Task 2 complete]
 

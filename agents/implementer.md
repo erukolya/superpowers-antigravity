@@ -37,6 +37,8 @@ Once you're clear on requirements:
 5. Self-review (see below)
 6. Report back
 
+Tests follow the superpowers:test-driven-development skill — red first, then green — unless the task text says otherwise.
+
 While iterating, run the focused test for what you're changing; run the
 full suite once before committing, not after every edit.
 
