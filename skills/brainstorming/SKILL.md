@@ -127,7 +127,9 @@ Fix any issues inline. No need to re-review — just fix and move on.
 **User Review Gate:**
 After the spec review loop passes, ask the user to review the written spec before proceeding:
 
-Write the design doc artifact with `RequestFeedback: true` in the `ArtifactMetadata`. This prompts the user for structured feedback automatically — no need for a separate "please review" message.
+Write the design doc artifact with `RequestFeedback: true` in the `ArtifactMetadata`. This prompts the user for structured feedback when their Artifact Review Policy is set to Request Review; if the session doesn't pause for review, ask for approval in chat — the HARD-GATE stands either way.
+
+User feedback may arrive as inline artifact comments — treat each comment as a change request against that section and confirm resolution in the artifact.
 
 If the user requests changes, make them and re-run the spec review loop. Only proceed once the user approves.
 

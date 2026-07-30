@@ -129,7 +129,7 @@ conflicts that only emerge from implementation.
 
 ## Model Selection
 
-Model tiers are set in each agent file's frontmatter (`model: flash|pro|inherit`). The four bundled roles live in the plugin's `agents/` directory and all ship `model: inherit` — the session's model governs. To differentiate tiers, edit those files, or add a workspace-scoped variant at `.agents/agents/<name>.md`. Neither `define_subagent` nor `invoke_subagent` takes a model argument.
+Model tiers are set in each agent file's frontmatter (`model: flash|pro|inherit`). The four bundled roles live in the plugin's `agents/` directory and all ship `model: inherit` — the session's model governs. To differentiate tiers, add a workspace-scoped variant at `.agents/agents/<name>.md` first — this is the primary escalation path — or edit the plugin's bundled agent files directly; editing plugin (or global) agent files may require the user's Agent Non-Workspace File Access setting to be enabled. Neither `define_subagent` nor `invoke_subagent` takes a model argument.
 
 Use the least powerful tier that can handle each role to conserve cost and increase speed.
 
@@ -169,11 +169,13 @@ Implementer subagents report one of four statuses. Handle each appropriately:
 
 **BLOCKED:** The implementer cannot complete the task. Assess the blocker:
 1. If it's a context problem, resume or re-dispatch with more context
-2. If the task requires more reasoning, raise the agent's tier (edit the bundled agent's frontmatter to `model: pro`, or add a workspace-scoped variant) and re-dispatch
+2. If the task requires more reasoning, raise the agent's tier — add a workspace-scoped variant at `.agents/agents/<name>.md` first, or edit the bundled agent's frontmatter to `model: pro` (may require Agent Non-Workspace File Access) — and re-dispatch
 3. If the task is too large, break it into smaller pieces
 4. If the plan itself is wrong, escalate to the user
 
 **Never** ignore an escalation or force the same agent to retry without changes. If the implementer said it's stuck, something needs to change.
+
+**Terminal error:** if `manage_subagents` `Action: "list"` shows the subagent in an error state (terminal failure — distinct from idle), it cannot be resumed; treat it as killed: dispatch a fresh implementer with the task text and the last known state.
 
 ### Constructing Reviewer Prompts
 
@@ -281,7 +283,7 @@ digraph background_decision {
 
 ### Agent Communication
 
-Use `send_message` to communicate with subagents — running or idle. An idle (finished, not killed) subagent re-awakens on receipt and retains its full context.
+Use `send_message` to communicate with subagents — running or idle. An idle (finished, not killed or errored) subagent re-awakens on receipt and retains its full context.
 
 **Answering questions mid-flight:**
 - When an implementer asks a question, use `send_message` with the implementer's conversation ID — this works whether it's still running or has gone idle
@@ -293,7 +295,7 @@ Use `send_message` to communicate with subagents — running or idle. An idle (f
 
 **When to use `send_message` vs. re-dispatch:**
 - Subagent (running or idle) needs info → `send_message` — an idle subagent resumes with its context intact
-- Subagent reported NEEDS_CONTEXT → send the missing context via `send_message`; re-dispatch a fresh subagent only if the original was killed
+- Subagent reported NEEDS_CONTEXT → send the missing context via `send_message`; re-dispatch a fresh subagent only if the original was killed or in an error state
 - Subagent reported BLOCKED → assess blocker, possibly resume with more context via `send_message`, break the task into smaller pieces, or dispatch a more capable custom agent type
 
 **If subagent asks questions:**

@@ -174,6 +174,8 @@ After saving the plan (using `write_to_file` with `IsArtifact: true`, with the i
 
 Use `ask_question` to present the confirmation.
 
+User feedback may arrive as inline artifact comments — treat each comment as a change request against that section and confirm resolution in the artifact.
+
 **REQUIRED SUB-SKILL:** Use superpowers:subagent-driven-development
 - Fresh subagent per task + two-stage review (spec compliance + code quality)
 - Define implementer/spec-reviewer/code-reviewer types upfront
