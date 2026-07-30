@@ -61,7 +61,7 @@ The abstraction layer costs tokens on every interaction, and those costs compoun
 |------|---------------------------|-----------| 
 | **Platforms** | 9+ (Claude Code, Codex, Cursor, etc.) | Antigravity 2.0 only |
 | **Tool names in skills** | Claude Code names + mapping files | Native Antigravity names |
-| **Subagent dispatch** | `Task tool (general-purpose)` | `invoke_subagent` / `define_subagent` |
+| **Subagent dispatch** | `Task tool (general-purpose)` | Bundled custom agents + `invoke_subagent` |
 | **Workspace isolation** | `git worktree` with fallback | Native `Workspace: "branch"` / `"share"` / `"inherit"` |
 | **Task tracking** | `TodoWrite` tool | `task.md` artifacts |
 | **Visual brainstorming** | Browser-based server | Native `generate_image` (no server needed) |
@@ -79,7 +79,7 @@ Beyond the platform port, this fork adds capabilities that don't exist upstream:
 - 📐 **Rich plan formatting** — Mermaid architecture diagrams, clickable `file:///` links, diff blocks
 - 🔄 **Async subagent coordination** — `manage_task` for builds, `send_message` mid-flight, `schedule` for timeouts
 - 🌐 **Browser-testing skill** — evidence-before-assertions discipline for UI work
-- 💰 **Token-saving subagents** — reviewers use `TypeName: "research"` (read-only, smaller context)
+- 💰 **Token-saving subagents** — reviewers are read-only bundled agents (`TypeName: "research"` for ad-hoc review)
 - ✅ **Automatic feedback loops** — `RequestFeedback: true` (in `ArtifactMetadata`) on design docs and plans
 - 🔀 **Workspace mode guidance** — decision tables for `branch` / `inherit` / `share` per role
 - 🔍 **Web research integration** — `search_web` woven into debugging, brainstorming, and planning
@@ -232,7 +232,7 @@ git pull
 | **receiving-code-review** | Responding to feedback with technical rigor |
 | **using-git-worktrees** | Workspace isolation with mode decision table |
 | **finishing-a-development-branch** | Merge/PR decision workflow |
-| **subagent-driven-development** | Fast iteration with two-stage task review and async coordination |
+| **subagent-driven-development** | Fast iteration with two-stage task review and async coordination; resume-based fix loop with five-round cap |
 
 ### Meta
 | Skill | Purpose |

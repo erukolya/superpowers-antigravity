@@ -31,7 +31,7 @@ HEAD_SHA=$(git rev-parse HEAD)
 
 **2. Dispatch code reviewer subagent:**
 
-Use `invoke_subagent` with `TypeName: "code-reviewer"` (if defined via `define_subagent` earlier) or `TypeName: "research"` for lightweight read-only review. Use `Workspace: "inherit"` — reviewers only need read access.
+Use `invoke_subagent` with `TypeName: "code-reviewer"` (bundled with this plugin) or `TypeName: "research"` for lightweight read-only review. Use `Workspace: "inherit"` — reviewers only need read access.
 
 **Placeholders:**
 - `{DESCRIPTION}` - Brief summary of what you built
