@@ -30,9 +30,7 @@ After you've signed off on the design, your agent puts together an implementatio
 
 Next up, once you say "go", it launches a *subagent-driven-development* process, having agents work through each engineering task, inspecting and reviewing their work, and continuing forward. It's not uncommon for agents to work autonomously for a couple hours at a time without deviating from the plan you put together.
 
-There's a bunch more to it, but that's the core of the system. And because the skills trigger automatically, you don't need to do anything special. Your coding agent just has Superpowers.
-
-The bootstrap ships as a native rule (activate it as Always On in the Rules panel if it isn't already), with a context-file fallback for CLI compatibility.
+There's a bunch more to it, but that's the core of the system. And because the skills trigger automatically, you don't need to do anything special. Your coding agent just has Superpowers. (See [Activation](#-activation) for how the loading works — and how to scope it if you don't want it everywhere.)
 
 ## 🔀 What's Different from Upstream?
 
@@ -237,6 +235,16 @@ agy plugin disable superpowers
 5. The brainstorming skill should trigger automatically — the agent asks design questions instead of writing code
 
 > The slash form isn't on the documented slash-command surface (that page covers workflows), but it works in practice — the palette also surfaces skills. If it ever stops resolving, steps 3-5 are the fallback check.
+
+## 🔌 Activation
+
+Once installed, the methodology loads itself — no per-session setup:
+
+- **Automatic (default).** The plugin's context file loads the `using-superpowers` bootstrap into every session, and the bundled rule (`rules/using-superpowers.md`) does the same through Antigravity's rule system — check the Rules panel once after installing and set it to **Always On** if it isn't already. From there, individual skills trigger themselves based on what you ask for: describe a feature and brainstorming starts, report a bug and systematic-debugging starts.
+- **Per session.** Type `/using-superpowers` (IDE) or `/superpowers:using-superpowers` (CLI) to load the methodology for just the current conversation.
+- **Scoped, if you don't want it everywhere.** Install as a **workspace plugin** (`.agents/plugins/superpowers`) so only chosen projects get it — or set the bundled rule to **Manual** in the Rules panel and summon it on demand with the slash command when a session calls for it.
+
+The always-loaded footprint is a single compressed bootstrap (~55 lines); individual skills are read only when they actually trigger.
 
 ## 📚 Skills Reference
 
