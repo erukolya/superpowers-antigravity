@@ -23,7 +23,7 @@ Reviewed every tool call and capability claim in the skills against the official
 
 ### Fixes
 
-* **Skill docs, README, and test invocations now match reality.** `writing-skills` teaches the actual documented skill directory locations and native frontmatter spec instead of stale ones; the README's verify step is a command that actually runs, with working CLI plugin-install instructions beside it; and the `tests/antigravity` suite's `agy` invocations finally carry the flags headless runs always needed (`--print-timeout`, `--dangerously-skip-permissions`) instead of hanging or stalling on an interactive review prompt.
+* **Skill docs, README, and test invocations now match reality.** `writing-skills` teaches the actual documented skill directory locations and native frontmatter spec instead of stale ones; the README's verify steps now cover both entry points (the `/using-superpowers` session load and a natural-language skills check), with working CLI plugin-install instructions beside them; and the `tests/antigravity` suite's `agy` invocations finally carry the flags headless runs always needed (`--print-timeout`, `--dangerously-skip-permissions`) instead of hanging or stalling on an interactive review prompt.
 
 ### Features
 

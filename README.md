@@ -230,9 +230,12 @@ agy plugin disable superpowers
 ### ✅ Verify Installation
 
 1. Start a new Antigravity session in any project
-2. Ask: "What superpowers skills do you have available?" — the agent should enumerate skills from this plugin
-3. Say "Let's make a react todo list"
-4. The brainstorming skill should trigger automatically — the agent asks design questions instead of writing code
+2. Type `/using-superpowers` (or `/superpowers:using-superpowers` for the CLI) — the bootstrap loads for the session
+3. Alternatively, ask: "What superpowers skills do you have available?" — the agent should enumerate skills from this plugin
+4. Say "Let's make a react todo list"
+5. The brainstorming skill should trigger automatically — the agent asks design questions instead of writing code
+
+> The slash form isn't on the documented slash-command surface (that page covers workflows), but it works in practice — the palette also surfaces skills. If it ever stops resolving, steps 3-5 are the fallback check.
 
 ## 📚 Skills Reference
 
