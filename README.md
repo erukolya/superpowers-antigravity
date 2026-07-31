@@ -51,7 +51,7 @@ The abstraction layer costs tokens on every interaction, and those costs compoun
 
 3. **Platform-conditional branching in skills.** The upstream `using-superpowers` skill has separate instruction blocks for Claude Code, Copilot CLI, Gemini CLI, Codex, Antigravity 2.0, and "other environments." Only one applies.
 
-4. **86 fewer files in the project.** When agents explore the repo, fewer files means less noise in `list_dir` output and faster orientation.
+4. **75 fewer files than upstream (as of v6.2.0).** When agents explore the repo, fewer files means less noise in `list_dir` output and faster orientation.
 
 5. **Smaller, focused skills.** Skills like `using-git-worktrees` went from ~216 lines to ~55 lines. Shorter skills = less context consumed.
 
@@ -84,6 +84,7 @@ Beyond the platform port, this fork adds capabilities that don't exist upstream:
 - 💰 **Token-saving subagents** — reviewers are read-only bundled agents (`TypeName: "research"` for ad-hoc review)
 - ✅ **Automatic feedback loops** — `RequestFeedback: true` (in `ArtifactMetadata`) on design docs and plans
 - 🔀 **Workspace mode guidance** — decision tables for `branch` / `inherit` / `share` per role
+- 🛡️ **Edit-time purity gate** — a `PreToolUse` hook blocks banned legacy vocabulary from entering this plugin's `skills/` before a write ever lands
 - 🔍 **Web research integration** — `search_web` woven into debugging, brainstorming, and planning
 
 ## 🚀 The Workflow
@@ -242,7 +243,7 @@ agy plugin disable superpowers
 ### Testing & Verification
 | Skill | Purpose |
 |-------|---------|
-| **test-driven-development** | RED-GREEN-REFACTOR cycle with testing anti-patterns reference |
+| **test-driven-development** | RED-GREEN-REFACTOR cycle with the `writing-good-tests` reference (falsifiability rules + mutation check) |
 | **browser-testing** | Evidence-before-assertions for UI work (screenshot → DOM inspect → embed proof) |
 
 ### Debugging
@@ -258,7 +259,7 @@ agy plugin disable superpowers
 | **writing-plans** | Detailed plans with Mermaid diagrams, rich formatting, `RequestFeedback` |
 | **executing-plans** | Inline plan execution with walkthrough generation |
 | **dispatching-parallel-agents** | Concurrent workflows with `Workspace: "share"` and monitoring |
-| **requesting-code-review** | `TypeName: "research"` reviewers with severity classification |
+| **requesting-code-review** | Bundled `code-reviewer` dispatches with severity classification (`research` for lightweight ad-hoc reviews) |
 | **receiving-code-review** | Responding to feedback with technical rigor |
 | **using-git-worktrees** | Workspace isolation with mode decision table |
 | **finishing-a-development-branch** | Merge/PR decision workflow |
