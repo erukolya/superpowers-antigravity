@@ -92,6 +92,30 @@ assert_deny() {
     esac
 }
 
+# run_hook_in_dir <dir> <payload> -- like run_hook, but invokes the hook
+# with $PWD set to <dir> for that call only (the `cd` happens inside the
+# command substitution's own subshell, so this script's own CWD is never
+# touched). Exists to prove a decision does NOT depend on the hook's
+# invocation CWD.
+run_hook_in_dir() {
+    local dir="$1" payload="$2"
+    if HOOK_OUT="$(cd "$dir" && printf '%s' "$payload" | bash "$HOOK")"; then
+        HOOK_CODE=0
+    else
+        HOOK_CODE=$?
+    fi
+}
+
+assert_allow_in_dir() {
+    local desc="$1" dir="$2" payload="$3"
+    run_hook_in_dir "$dir" "$payload"
+    if [ "$HOOK_CODE" -eq 0 ] && [ "$HOOK_OUT" = '{"decision":"allow"}' ]; then
+        pass "$desc"
+    else
+        fail "$desc (exit=$HOOK_CODE out=$HOOK_OUT)"
+    fi
+}
+
 echo "=== Fixtures ==="
 echo ""
 
@@ -145,6 +169,31 @@ assert_deny "skills/ file quoting a banned term in prose -> still deny (same law
 # regression fixture for that fix.
 FIXTURE_FOREIGN_WORKSPACE='{"toolCall":{"name":"write_to_file","args":{"TargetFile":"/tmp/other-project/skills/x.md","CodeContent":"Use the TodoWrite tool to track your progress through the plan.","Overwrite":true}},"stepIdx":10,"conversationId":"test-10"}'
 assert_allow "banned content in a FOREIGN project's skills/ -> allow (blast-radius guarantee)" "$FIXTURE_FOREIGN_WORKSPACE"
+
+# 11. Blast-radius guarantee, relative-path case: a RELATIVE TargetFile
+# ("skills/evil.md") with banned content and NO workspacePaths in the
+# payload -- no workspace root to confidently join onto. hooks.json invokes
+# this script via a relative path ("bash ./hooks/purity-check.sh"), so its
+# own $PWD is plausibly THIS plugin's root in every workspace; the fix
+# under test removes the old $PWD fallback that let that coincidence
+# wrongly resolve a foreign project's relative skills/ write into scope.
+# Run twice, from two different CWDs (a throwaway foreign dir, then the
+# repo root itself), to pin down that the decision does not depend on
+# either -- both must allow.
+FOREIGN_CWD="$(mktemp -d)"
+trap 'rm -rf "$FOREIGN_CWD"' EXIT
+
+FIXTURE_RELATIVE_NO_WORKSPACE='{"toolCall":{"name":"write_to_file","args":{"TargetFile":"skills/evil.md","CodeContent":"Use the TodoWrite tool to track your progress through the plan.","Overwrite":true}},"stepIdx":11,"conversationId":"test-11"}'
+assert_allow_in_dir "relative TargetFile, no workspacePaths, run from a foreign CWD -> allow (fail open)" "$FOREIGN_CWD" "$FIXTURE_RELATIVE_NO_WORKSPACE"
+assert_allow_in_dir "same fixture run from repo root CWD -> allow too (decision is CWD-independent)" "$REPO_ROOT" "$FIXTURE_RELATIVE_NO_WORKSPACE"
+
+# 12. Same relative TargetFile and banned content as #11, but this payload
+# DOES carry workspacePaths[0] = this repo's own root -- a confident signal
+# that "skills/evil.md" resolves inside THIS plugin's skills/ tree -- so
+# this one must still deny. Confirms the fix only removed the $PWD guess,
+# not the legitimate workspacePaths join.
+FIXTURE_RELATIVE_WITH_WORKSPACE='{"toolCall":{"name":"write_to_file","args":{"TargetFile":"skills/evil.md","CodeContent":"Use the TodoWrite tool to track your progress through the plan.","Overwrite":true}},"workspacePaths":["'"$REPO_ROOT"'"],"stepIdx":12,"conversationId":"test-12"}'
+assert_deny "relative TargetFile with workspacePaths confidently inside plugin -> deny" "$FIXTURE_RELATIVE_WITH_WORKSPACE" "TodoWrite"
 
 echo ""
 echo "========================================"

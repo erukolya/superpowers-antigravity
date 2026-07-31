@@ -185,10 +185,11 @@ fi
 # Best-effort workspace-root extraction (payload's workspacePaths[0], per
 # the documented PreToolUse stdin shape -- see the header contract note).
 # Independent of the TARGET_FILE/content extraction above: a miss or
-# malformed field here never blocks the check, it just means the
-# relative-path join below falls back to $PWD, same as if the payload never
-# carried the field at all. Reuses whichever parser already won above ($PY
-# stays set from the elif branch when PARSER="py").
+# malformed field here never blocks the check, it just means a relative
+# TargetFile below has no workspace root to join onto and the hook fails
+# open (no $PWD fallback -- see the relative-path case below for why).
+# Reuses whichever parser already won above ($PY stays set from the elif
+# branch when PARSER="py").
 if [ "$PARSER" = "jq" ]; then
     WORKSPACE_ROOT="$(printf '%s' "$INPUT" | jq -r '.workspacePaths[0]? // empty' 2>/dev/null)"
 else
@@ -222,13 +223,18 @@ case "$NORM_PATH" in
         ;;
     *)
         # Relative path: join onto the payload's workspace root
-        # (workspacePaths[0], extracted above) if it carried one, else onto
-        # this process's own $PWD.
+        # (workspacePaths[0], extracted above). Deliberately NO $PWD
+        # fallback: hooks.json invokes this script via a relative path
+        # ("bash ./hooks/purity-check.sh"), so $PWD at hook runtime is
+        # plausibly this plugin's own root in EVERY workspace -- falling
+        # back to it would let a foreign project's relative skills/ write
+        # wrongly resolve into scope. Per the policy above, ambiguous scope
+        # allows, not denies.
         JOIN_BASE="$WORKSPACE_ROOT"
-        [ -n "$JOIN_BASE" ] || JOIN_BASE="$PWD"
+        [ -n "$JOIN_BASE" ] || allow   # no workspace root -> ambiguous, fail open
         JOIN_BASE="$(normalize_drive "$(printf '%s' "$JOIN_BASE" | tr '\\' '/')")"
         JOIN_BASE="${JOIN_BASE%/}"
-        [ -n "$JOIN_BASE" ] || allow   # nothing to join onto -> ambiguous, fail open
+        [ -n "$JOIN_BASE" ] || allow   # normalized to empty -> ambiguous, fail open
         ABS_PATH="$JOIN_BASE/$NORM_PATH"
         ;;
 esac
