@@ -116,7 +116,23 @@ Beyond the platform port, this fork adds capabilities that don't exist upstream:
 
 ## 📦 Installation
 
-### macOS / Linux
+### Antigravity CLI (`agy`)
+
+One command, straight from GitHub:
+
+```bash
+agy plugin install https://github.com/roundpilot/superpowers-antigravity
+```
+
+Manage with `agy plugin list` / `agy plugin enable superpowers` / `agy plugin disable superpowers`.
+
+> The CLI and the IDE keep independent plugin stores — installing into one does not install into the other.
+
+### Antigravity 2.0 IDE (desktop app)
+
+The IDE loads plugins from its config directories — clone this repo into one:
+
+#### macOS / Linux
 
 **Global plugin** (available in all projects):
 ```bash
@@ -133,7 +149,7 @@ git clone https://github.com/roundpilot/superpowers-antigravity .agents/plugins/
 cd ~/.gemini/config/plugins/superpowers && git pull
 ```
 
-### Windows (PowerShell)
+#### Windows (PowerShell)
 
 **Global plugin** (available in all projects):
 ```powershell
@@ -150,7 +166,7 @@ git clone https://github.com/roundpilot/superpowers-antigravity .agents\plugins\
 cd "$env:USERPROFILE\.gemini\config\plugins\superpowers"; git pull
 ```
 
-### Windows (WSL)
+#### Windows (WSL)
 
 If you run Antigravity inside WSL, use the Linux paths above.
 
@@ -164,7 +180,7 @@ git clone https://github.com/roundpilot/superpowers-antigravity /mnt/c/Users/$US
 git clone https://github.com/roundpilot/superpowers-antigravity /path/to/your/wsl/project/.agents/plugins/superpowers
 ```
 
-### Manual Installation (no git required)
+#### Manual IDE installation (no git required)
 
 <details>
 <summary>Download ZIP instead of cloning (click to expand)</summary>
@@ -191,7 +207,7 @@ To update later, delete the `superpowers` folder and repeat the steps above.
 
 </details>
 
-### Migrating from `roundpilot/superpowers`
+#### Migrating an IDE install from `roundpilot/superpowers`
 
 If you previously installed from `roundpilot/superpowers`, update your remote:
 
@@ -200,18 +216,6 @@ cd ~/.gemini/config/plugins/superpowers
 git remote set-url origin https://github.com/roundpilot/superpowers-antigravity.git
 git pull
 ```
-
-### CLI Installation (`agy`)
-
-One command, straight from GitHub:
-
-```bash
-agy plugin install https://github.com/roundpilot/superpowers-antigravity
-```
-
-Already cloned for the IDE? Installing from the local path works too: `agy plugin install ~/.gemini/config/plugins/superpowers`. Manage with `agy plugin list` / `agy plugin enable superpowers` / `agy plugin disable superpowers`.
-
-> IDE and CLI plugin stores are independent — installing into one does not install into the other.
 
 ### ✅ Verify Installation
 
