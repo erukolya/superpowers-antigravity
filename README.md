@@ -203,26 +203,13 @@ git pull
 
 ### CLI Installation (`agy`)
 
-The Antigravity CLI (`agy`) maintains its own plugin store, separate from the IDE's `~/.gemini/config/plugins/` directory used above. Install from the path you cloned to:
+One command, straight from GitHub:
 
 ```bash
-agy plugin install ~/.gemini/config/plugins/superpowers
+agy plugin install https://github.com/roundpilot/superpowers-antigravity
 ```
 
-(On Windows, substitute the path from the PowerShell section above, e.g. `agy plugin install "$env:USERPROFILE\.gemini\config\plugins\superpowers"`.)
-
-This stages the plugin at `~/.gemini/antigravity-cli/plugins/superpowers/`.
-
-**Confirm it's installed:**
-```bash
-agy plugin list
-```
-
-**Enable / disable:**
-```bash
-agy plugin enable superpowers
-agy plugin disable superpowers
-```
+Already cloned for the IDE? Installing from the local path works too: `agy plugin install ~/.gemini/config/plugins/superpowers`. Manage with `agy plugin list` / `agy plugin enable superpowers` / `agy plugin disable superpowers`.
 
 > IDE and CLI plugin stores are independent — installing into one does not install into the other.
 
