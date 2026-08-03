@@ -1,5 +1,13 @@
 # Superpowers Release Notes
 
+## v6.2.1 (2026-08-03)
+
+### Fixes
+
+* **The edit-time purity gate is now opt-in.** v6.2.0 shipped `hooks.json` enabled by default, and its command assumes `bash` is available to Antigravity's hook runner. On systems without it — Windows without Git Bash, for example — Antigravity fails closed on a hook it cannot run, which can block file writes in any workspace while the plugin is enabled. The gate is a contributor tool for this repo, not something end users need: it now ships as `hooks.example.json`, and renaming it to `hooks.json` enables it. If v6.2.0 made your sessions fail on file edits, update and the problem goes away.
+
+---
+
 ## v6.2.0 (2026-07-30)
 
 ### Upstream v6.2.0 Sync

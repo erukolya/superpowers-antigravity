@@ -41,8 +41,9 @@ fail() { echo "  [FAIL] $1"; FAILURES=$((FAILURES + 1)); }
 # Invoked as `bash "$HOOK"`, not `"$HOOK"` directly, and NOT gated on the
 # executable bit: this repo has core.fileMode=false (confirmed against an
 # existing tracked sibling script, also 100644), so a fresh clone/checkout
-# never carries the exec bit regardless of local `chmod +x`. hooks.json's
-# own "command" invokes the script the same way ("bash ./hooks/purity-check.sh")
+# never carries the exec bit regardless of local `chmod +x`. The hook
+# manifest (hooks.example.json; renamed to hooks.json when opted in)
+# invokes the script the same way ("bash ./hooks/purity-check.sh")
 # for the same reason -- this test exercises the real invocation path.
 #
 # run_hook <payload> -- sets HOOK_OUT / HOOK_CODE. Written to survive
@@ -163,7 +164,7 @@ assert_deny "skills/ file quoting a banned term in prose -> still deny (same law
 
 # 10. Blast-radius guarantee: the SAME banned content, targeting a skills/
 # path under a completely FOREIGN project (not this repo/plugin) -> allow.
-# hooks.json ships to every install that enables this plugin, so without
+# When opted in, the hook runs in every workspace, so without
 # the plugin-root anchor this write would have been denied even though it
 # has nothing to do with this fork's vocabulary law. This is the direct
 # regression fixture for that fix.

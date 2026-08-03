@@ -7,8 +7,14 @@
 # this hook just catches it before the write lands instead of after, at
 # edit time.
 #
+# --- Opt-in: this gate is for contributors to THIS repo ------------------
+# The hook manifest ships as hooks.example.json; rename it to hooks.json to
+# enable the gate. It requires bash to be available to Antigravity's hook
+# runner -- on systems without it the platform fails closed and would deny
+# the matched writes, which is why it is not enabled by default.
+#
 # --- Scope: this plugin's skills/ only, never any other project's --------
-# hooks.json ships to every install that enables this plugin, so a naive
+# When enabled, the hook runs in every workspace, so a naive
 # "does this path contain skills/" check would vet ANY open workspace's
 # skills/ writes against this fork-internal vocabulary law -- including
 # projects that have nothing to do with this repo and don't share its

@@ -9,7 +9,7 @@
 
 <p align="center">
   <a href="https://github.com/roundpilot/superpowers-antigravity#-installation"><img src="https://img.shields.io/badge/Install-Guide-blue?style=for-the-badge" alt="Install"></a>
-  <a href="RELEASE-NOTES.md"><img src="https://img.shields.io/badge/Version-6.2.0-green?style=for-the-badge" alt="Version 6.2.0"></a>
+  <a href="RELEASE-NOTES.md"><img src="https://img.shields.io/badge/Version-6.2.1-green?style=for-the-badge" alt="Version 6.2.1"></a>
   <a href="https://github.com/obra/superpowers"><img src="https://img.shields.io/badge/Fork%20of-obra%2Fsuperpowers-purple?style=for-the-badge" alt="Fork of obra/superpowers"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge" alt="MIT License"></a>
 </p>
@@ -82,7 +82,7 @@ Beyond the platform port, this fork adds capabilities that don't exist upstream:
 - 💰 **Token-saving subagents** — reviewers are read-only bundled agents (`TypeName: "research"` for ad-hoc review)
 - ✅ **Automatic feedback loops** — `RequestFeedback: true` (in `ArtifactMetadata`) on design docs and plans
 - 🔀 **Workspace mode guidance** — decision tables for `branch` / `inherit` / `share` per role
-- 🛡️ **Edit-time purity gate** — a `PreToolUse` hook blocks banned legacy vocabulary from entering this plugin's `skills/` before a write ever lands
+- 🛡️ **Edit-time purity gate** — a `PreToolUse` hook blocks banned legacy vocabulary from entering this plugin's `skills/` before a write ever lands (opt-in for contributors: rename `hooks.example.json` → `hooks.json`; requires `bash` available to the hook runner)
 - 🔍 **Web research integration** — `search_web` woven into debugging, brainstorming, and planning
 
 ## 🚀 The Workflow
