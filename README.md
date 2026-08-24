@@ -9,7 +9,7 @@
 
 <p align="center">
   <a href="https://github.com/roundpilot/superpowers-antigravity#-installation"><img src="https://img.shields.io/badge/Install-Guide-blue?style=for-the-badge" alt="Install"></a>
-  <a href="RELEASE-NOTES.md"><img src="https://img.shields.io/badge/Version-6.2.1-green?style=for-the-badge" alt="Version 6.2.1"></a>
+  <a href="RELEASE-NOTES.md"><img src="https://img.shields.io/badge/Version-6.3.0-green?style=for-the-badge" alt="Version 6.3.0"></a>
   <a href="https://github.com/obra/superpowers"><img src="https://img.shields.io/badge/Fork%20of-obra%2Fsuperpowers-purple?style=for-the-badge" alt="Fork of obra/superpowers"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge" alt="MIT License"></a>
 </p>
@@ -49,9 +49,9 @@ The abstraction layer costs tokens on every interaction, and those costs compoun
 
 3. **Platform-conditional branching in skills.** The upstream `using-superpowers` skill has separate instruction blocks for Claude Code, Copilot CLI, Gemini CLI, Codex, Antigravity 2.0, and "other environments." Only one applies.
 
-4. **76 fewer files than upstream (as of v6.2.0 on both sides).** When agents explore the repo, fewer files means less noise in `list_dir` output and faster orientation.
+4. **87 fewer files than upstream (as of v6.3.0 on both sides).** When agents explore the repo, fewer files means less noise in `list_dir` output and faster orientation.
 
-5. **Leaner skills without platform detection.** No harness-detection or fallback branches inside skills — `using-git-worktrees` is 120 lines to upstream's 167 (as of v6.2.0). Shorter skills = less context consumed.
+5. **Leaner skills without platform detection.** No harness-detection or fallback branches inside skills — `using-git-worktrees` is 120 lines to upstream's 167 (as of v6.3.0). Shorter skills = less context consumed.
 
 </details>
 

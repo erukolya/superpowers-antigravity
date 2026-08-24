@@ -1,5 +1,22 @@
 # Superpowers Release Notes
 
+## v6.3.0 (2026-08-24)
+
+### Upstream v6.3.0 Sync
+
+* **render-graphs.js runs again.** The script used `require()` while the repo root `package.json` declares `"type": "module"`, so every invocation threw `ReferenceError` before it rendered a single diagram — it could not run at all. Converted to ESM imports, and the Graphviz availability probe no longer shells out to `which`, which is not a command on Windows; it now runs `dot -V` directly. Upstream's test suite is ported alongside it (`tests/writing-skills/test-render-graphs.sh`), with one divergence: it skips cleanly when `node` is absent from PATH instead of failing on an empty command.
+* **Plans carry a `Spec:` pointer.** `writing-plans` now records which spec the plan argues from, so executors read the spec the plan is arguing from, not just the plan itself.
+* **SDD: rulings instead of stalls, a ledgered conflict scan, batched dispatch.** Controllers record a `Ruling:` and continue past questions they're equipped to decide instead of parking the session on them — upstream reports a session blocked nine hours on exactly this. The pre-dispatch conflict scan now writes its checks to the ledger as a table instead of just asserting the plan is clean. Small same-shape tasks batch into one dispatch instead of one each. And every ruling made over the course of a run is now collected into the Finish report, so the decisions don't die with the workspace that made them.
+* **The spec reviewer re-reads evidence it can't parse.** When `agents/spec-reviewer.md` can't read the implementer's evidence, it now re-reads it at its stated path and reports the gap — instead of re-running the suite itself and substituting its own result for the one under review. Batched dispatches are also verified file by file, so a listed file the diff never touched shows up as a Missing finding.
+* **`finishing-a-development-branch` asks instead of forcing.** When `git worktree remove` refuses because the tree holds modified or untracked files, the skill now names those files and offers commit / move / delete, rather than reaching for `--force` — those files exist nowhere else.
+* **Brainstorming ceremony scales to the task.** Requests now route through a three-path check — spike, bounded, or architectural — so a three-sentence probe no longer pays for the full two-document ritual that an architectural change needs. The approval gate is unchanged on every path; only the artifact scales with it.
+
+### Not Ported from Upstream v6.3.0
+
+* **"You Do Not Dispatch Subagents"** — upstream adds this guidance across four files because its subagents inherit the full tool set by default, and reviewers were spawning duplicate reviewers as a result. This fork's bundled agents (`agents/*.md`) already carry explicit `tools:` allowlists that omit `invoke_subagent`, so there is nothing for the prose to prevent — the constraint already lives in frontmatter rather than in wording.
+
+---
+
 ## v6.2.1 (2026-08-03)
 
 ### Fixes
