@@ -414,10 +414,12 @@ reviews don't cover.
 
 - If the final whole-branch review returns findings, dispatch ONE fix
   subagent with the complete findings list — not one fixer per finding.
-  Record FIX_BASE (`git rev-parse HEAD`) before that dispatch.
+  Record its task branch name from the dispatch result: the fix subagent
+  commits to its own branch, not to yours, so the fix range lives there.
 - Then run exactly one scoped re-review of the fix wave: dispatch the
   `re-reviewer` (see `re-review-prompt.md`) with the findings and the fix
-  range `FIX_BASE..HEAD` — the fix wave's commits, nothing earlier.
+  range — the head the final review saw as the fix base, the fix branch's
+  head as the head. The fix wave's commits, nothing earlier.
   Adjudicate any residual findings as in the task loop's breaker: park with
   rulings, or rule on the load-bearing ones and ledger what you decided.
   Only the four classes above stop you here. There is no second fix wave —
