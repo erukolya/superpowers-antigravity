@@ -77,12 +77,12 @@ artifact, never the approval.
 Classify first, announce the path, then work the items on that path in
 order.
 
-On the **bounded** and **architectural** paths, track those items as a
-`task.md` artifact (using `write_to_file` with `IsArtifact: true` and
-the task type in `ArtifactMetadata`). A **spike** gets no artifact and
-no visual step — writing a tracking file for a three-sentence probe is
-exactly the over-ceremony this router exists to remove. Keep the spike
-in chat.
+On the **bounded** and **architectural** paths, you MUST track those
+items as a `task.md` artifact (using `write_to_file` with
+`IsArtifact: true` and the task type in `ArtifactMetadata`). A **spike**
+gets no artifact and no visual step — writing a tracking file for a
+three-sentence probe is exactly the over-ceremony this router exists to
+remove. Keep the spike in chat.
 
 **Spike:**
 1. **Explore project context** — enough to frame the probe
