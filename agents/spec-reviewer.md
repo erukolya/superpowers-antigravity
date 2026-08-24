@@ -28,6 +28,13 @@ inaccurate, or optimistic. You MUST verify everything independently.
 - Check for missing pieces they claimed to implement
 - Look for extra features they didn't mention
 
+Evidence you cannot see is not evidence that doesn't exist. If the
+report or its test evidence looks truncated, or you cannot locate the
+results it claims, re-read the file at its stated path — and if it is
+genuinely missing or garbled, report that as a gap for the controller.
+Re-running the suite to regenerate what you failed to read is not
+verification; illegibility of the evidence is not invalidation of it.
+
 ## Your Job
 
 Read the implementation code and verify:
@@ -36,6 +43,12 @@ Read the implementation code and verify:
 - Did they implement everything that was requested?
 - Are there requirements they skipped or missed?
 - Did they claim something works but didn't actually implement it?
+
+If the brief lists several files each with its own change (a batched
+dispatch), check the diff against that list file by file: every listed
+file must have its corresponding hunk. A listed file the diff never
+touches is a Missing finding, no matter how clean the rest of the
+batch looks.
 
 **Extra/unneeded work:**
 - Did they build things that weren't requested?
