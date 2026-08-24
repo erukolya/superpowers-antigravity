@@ -73,6 +73,9 @@ Include a Mermaid diagram showing component relationships and data flow. This di
 
 **Tech Stack:** [Key technologies/libraries]
 
+**Spec:** [path to the spec/design doc this plan implements — the plan
+argues from the spec, so the spec travels with it; executors read both]
+
 ## Global Constraints
 
 [Project-wide requirements — version floors, dependency limits, naming rules, platform requirements — one line each, exact values from the spec.]
