@@ -11,7 +11,21 @@ Execute plan by dispatching fresh subagent per task, with two-stage review after
 
 **Core principle:** Fresh subagent per task + two-stage review (spec then quality) = high quality, fast iteration
 
-**Continuous execution:** Do not pause to check in with your human partner between tasks. Execute all tasks from the plan without stopping. The only reasons to stop are: BLOCKED status you cannot resolve, ambiguity that genuinely prevents progress, or all tasks complete. "Should I continue?" prompts and progress summaries waste their time — they asked you to execute the plan, so execute it.
+**Continuous execution:** Do not pause to check in with your human partner between tasks. Execute all tasks from the plan without stopping. The only reasons to stop are the four named below, or all tasks complete. "Should I continue?" prompts and progress summaries waste their time — they asked you to execute the plan, so execute it.
+
+**Rulings, not stalls.** A running plan does not wait on a human. Conflicts,
+ambiguities, plan defects, a cap you would have asked to exceed — decide
+them. The spec is the binding authority, the plan is its argument, and your
+judgment settles what neither answers. Record every decision in the ledger as
+`Ruling: <what you decided> — <why> — <what it costs if wrong>`, and keep
+going. A wrong ruling costs rework your human partner can see and undo; a
+session parked on a question costs their whole day and buys nothing.
+
+Four things stop you, and only these: an irreversible or destructive
+operation; a security-sensitive action; a side effect outside this worktree
+that norms say you ask about first (a merge, a push to a shared branch, a
+publish); and a plan so broken that every path forward is a guess. For those,
+stop and ask.
 
 ## When to Use
 
@@ -111,21 +125,34 @@ discovered — verify the plugin installation before working around it.
 | Re-reviewer | `Workspace: "inherit"` | Read-only — verifies the fix diff |
 
 Read the plan once, extract all tasks with full text and context, and
-create a `task.md` artifact tracking each task's status.
+create a `task.md` artifact tracking each task's status. If the plan names
+a Spec, read that too: the spec is the authority the plan argues from, and
+conflicts inside the plan resolve against it. A plan with no reachable spec
+gets a ledger note saying so — rulings made without one are provisional.
 
 ### Pre-Flight Plan Review
 
-Before dispatching Task 1, scan the plan once for conflicts:
+Before dispatching Task 1, scan the plan once for conflicts, writing down
+what you checked as you check it:
 
 - tasks that contradict each other or the plan's Global Constraints
 - anything the plan explicitly mandates that the review rubric treats as a
   defect (a test that asserts nothing, verbatim duplication of a logic block)
 
-Present everything you find to your human partner as one batched question —
-each finding beside the plan text that mandates it, asking which governs —
-before execution begins, not one interrupt per discovery mid-plan. If the
-scan is clean, proceed without comment. The review loop remains the net for
-conflicts that only emerge from implementation.
+The scan's output is a table, not a verdict. One row for every pair of tasks
+that share a file or an interface: the two tasks, what one produces against
+what the other consumes, and what you found. One row for every task: whether
+its own text agrees with itself — the tests it specifies against the code it
+specifies, the files it creates against the files it later touches. "The scan
+is clean" without those rows is not a scan you ran.
+
+Write the table to the ledger. Rule on everything you find before execution
+begins — each finding against the plan text that mandates it — and record
+each ruling in the ledger. If the scan is clean, proceed without comment.
+Rule on each conflict it surfaces — the spec is the binding authority, the
+plan is its argument — record the ruling beside its row, and dispatch
+Task 1. The review loop remains the net for conflicts that only emerge from
+implementation.
 
 ## Model Selection
 
@@ -145,6 +172,14 @@ Use the least powerful tier that can handle each role to conserve cost and incre
 - Requires design judgment or broad codebase understanding → pro-tier agent type
 
 ## The Task Loop
+
+**Batch small same-shape work.** When the plan lists several tasks that are
+each a small, independent edit of the same kind — the same one-line fix,
+constant change, or field addition repeated across files — do not dispatch
+one subagent per task. Compose ONE dispatch brief listing every file and
+its change, send the whole batch to a single subagent, and review its diff
+as one unit. Reserve one-dispatch-per-task for work that needs its own
+judgment, its own tests, or its own review surface.
 
 For each task, in plan order:
 
@@ -171,7 +206,7 @@ Implementer subagents report one of four statuses. Handle each appropriately:
 1. If it's a context problem, resume or re-dispatch with more context
 2. If the task requires more reasoning, raise the agent's tier — add a workspace-scoped variant at `.agents/agents/<name>.md` first, or edit the bundled agent's frontmatter to `model: pro` (may require Agent Non-Workspace File Access) — and re-dispatch
 3. If the task is too large, break it into smaller pieces
-4. If the plan itself is wrong, escalate to the user
+4. If the plan itself is wrong, rule on the correction, ledger it, and re-dispatch with the ruling carried in the dispatch
 
 **Never** ignore an escalation or force the same agent to retry without changes. If the implementer said it's stuck, something needs to change.
 
@@ -204,11 +239,12 @@ final whole-branch review. When you fill a reviewer template:
   the implementer must fix them before proceeding to code quality review.
   The severity triage above (Critical/Important/Minor) applies to the
   code-quality reviewer's findings.
-- A finding labeled plan-mandated — or any finding that conflicts with what
-  the plan's text requires — is the human's decision: present the finding
-  and the plan text, ask which governs. Do not dismiss the finding because
+- A finding labeled plan-mandated — or any finding that conflicts with
+  what the plan's text requires — is yours to rule on: weigh the finding
+  against the plan text, decide with the spec as the binding authority, and
+  ledger the ruling before you act on it. Do not dismiss the finding because
   the plan mandates it, and do not dispatch a fix that contradicts the plan
-  without asking.
+  without a recorded ruling.
 - When a later dispatch touches an area with a parked finding, carry a
   one-line pointer to that ledger entry in the dispatch prompt.
 
@@ -248,11 +284,16 @@ each round.
 **At the cap — adjudicate.** After round 5, stop dispatching. For each
 open finding, rule:
 - **Contested** (implementer and reviewer disagree on whether it's real) —
-  park it: ledger the finding and your ruling.
+  park it: ledger the finding and your ruling as
+  `Task <N>: parked — <finding> — Ruling: <why the code stands>`.
 - **Real but not load-bearing** for this task — park it the same way; the
   final review triages it.
-- **Real and load-bearing** — the task is BLOCKED: stop and present it to
-  your human partner with both positions.
+- **Real and load-bearing** — a later task builds on it, or it reveals a
+  plan defect: rule on the smallest change that unblocks the dependent work,
+  ledger it as `Task <N>: Ruling: <finding> — <what you decided and why>`,
+  and carry it into the next task's dispatch. Parking a structural failure
+  silently lets every dependent task build on it. Stop only when the defect
+  leaves every path forward a guess.
 
 Adjudicate only at the cap. Never fix findings yourself in the controller
 session — controller fixes pollute your context and skip review.
@@ -372,11 +413,27 @@ the entire implementation — the one whole-branch review that per-task
 reviews don't cover.
 
 - If the final whole-branch review returns findings, dispatch ONE fix
-  subagent with the complete findings list — not one fixer per finding —
-  followed by exactly ONE scoped re-review of the fix wave. Residual
-  findings after that are adjudicated, not looped.
+  subagent with the complete findings list — not one fixer per finding.
+  Record FIX_BASE (`git rev-parse HEAD`) before that dispatch.
+- Then run exactly one scoped re-review of the fix wave: dispatch the
+  `re-reviewer` (see `re-review-prompt.md`) with the findings and the fix
+  range `FIX_BASE..HEAD` — the fix wave's commits, nothing earlier.
+  Adjudicate any residual findings as in the task loop's breaker: park with
+  rulings, or rule on the load-bearing ones and ledger what you decided.
+  Only the four classes above stop you here. There is no second fix wave —
+  residual load-bearing findings surface to your human partner when
+  **superpowers:finishing-a-development-branch** presents the options.
 
 ## Finish
+
+Before you delete anything, collect every ledger line containing `Ruling:` —
+preflight rulings, parked findings, breaker adjudications, all of them — into
+your final message under "Rulings I made", in the order you made them, each
+with what it costs if wrong. The list is exhaustive: if the ledger holds a
+ruling, the list holds it. That list is the only place the decisions you
+took on your human partner's behalf reach them — they read it and rework
+whatever you got wrong. A ruling that dies with the workspace was a decision
+made in secret.
 
 - When the final whole-branch review is clean, delete this plan's
   directory (`rm -rf .superpowers/sdd/<plan-basename>`) — git history is
