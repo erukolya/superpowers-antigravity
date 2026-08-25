@@ -24,7 +24,7 @@
 
 It starts from the moment you fire up your coding agent. As soon as it sees that you're building something, it *doesn't* just jump into trying to write code. Instead, it steps back and asks you what you're really trying to do.
 
-Once it's teased a spec out of the conversation, it shows it to you in chunks short enough to actually read and digest.
+How much ceremony follows depends on what you asked for. It classifies the request out loud — a feasibility probe, a bounded change to code that already exists, or something architectural — and only the last of those earns a written spec, shown to you in chunks short enough to actually read and digest. The smaller paths get a couple of sentences in chat instead. What never scales down is the approval: nothing gets built until you say yes.
 
 After you've signed off on the design, your agent puts together an implementation plan that's clear enough for an enthusiastic junior engineer with poor taste, no judgement, no project context, and an aversion to testing to follow. It emphasises true red/green TDD, YAGNI (You Aren't Gonna Need It), and DRY.
 
@@ -104,7 +104,7 @@ Beyond the platform port, this fork adds capabilities that don't exist upstream:
                                                                 └──────────────────────────┘
 ```
 
-1. **brainstorming** — Refines rough ideas through questions, explores alternatives, generates visual mockups
+1. **brainstorming** — Classifies the request (spike / bounded / architectural), then refines it through questions, explores alternatives, generates visual mockups
 2. **using-git-worktrees** — Creates isolated workspace via native `Workspace: "branch"`
 3. **writing-plans** — Breaks work into bite-sized tasks with exact file paths and verification steps
 4. **subagent-driven-development** - Fresh subagent per task with two-stage review (spec compliance + code quality)
@@ -254,15 +254,15 @@ The always-loaded footprint is a single compressed bootstrap (~55 lines); indivi
 ### Collaboration
 | Skill | Purpose |
 |-------|---------|
-| **brainstorming** | Socratic design refinement with `generate_image` mockups and `search_web` for prior art |
-| **writing-plans** | Detailed plans with Mermaid diagrams, rich formatting, `RequestFeedback` |
+| **brainstorming** | Three-path router (spike / bounded / architectural) so ceremony scales to the task; Socratic refinement with `generate_image` mockups and `search_web` for prior art |
+| **writing-plans** | Detailed plans with Mermaid diagrams, rich formatting, `RequestFeedback`, and a `Spec:` pointer so the spec travels with the plan |
 | **executing-plans** | Inline plan execution with walkthrough generation |
 | **dispatching-parallel-agents** | Concurrent workflows with `Workspace: "share"` and monitoring |
 | **requesting-code-review** | Bundled `code-reviewer` dispatches with severity classification (`research` for lightweight ad-hoc reviews) |
 | **receiving-code-review** | Responding to feedback with technical rigor |
 | **using-git-worktrees** | Workspace isolation with mode decision table |
 | **finishing-a-development-branch** | Merge/PR decision workflow |
-| **subagent-driven-development** | Fast iteration with two-stage task review and async coordination; resume-based fix loop with five-round cap |
+| **subagent-driven-development** | Fast iteration with two-stage task review and async coordination; resume-based fix loop with five-round cap; records rulings instead of stalling, and batches small same-shape tasks into one dispatch |
 
 ### Meta
 | Skill | Purpose |
