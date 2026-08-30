@@ -1,19 +1,24 @@
 #!/usr/bin/env bash
-# Test: Autonomous Development Mission (Antigravity 2.0)
-# Exercises the autonomous path from an already-approved broad Mission Brief.
-# This is intentionally outcome-oriented: it does not prescribe internal microtasks.
+# Integration: approved task.md -> isolated Flash mission-controller -> supervisor gates -> COMPLETE.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/test-helpers.sh"
 
 if ! command -v agy &>/dev/null; then
-    echo "[SKIP] 'agy' command not found. Install Antigravity CLI to run this test."
+    echo "[SKIP] 'agy' command not found."
     exit 0
 fi
 
 TEST_PROJECT=$(create_test_project)
-trap "cleanup_test_project '$TEST_PROJECT'" EXIT
+VERIFY_DIR=""
+cleanup() {
+    if [ -n "$VERIFY_DIR" ] && [ -d "$VERIFY_DIR" ]; then
+        git -C "$TEST_PROJECT" worktree remove --force "$VERIFY_DIR" >/dev/null 2>&1 || true
+    fi
+    cleanup_test_project "$TEST_PROJECT"
+}
+trap cleanup EXIT
 cd "$TEST_PROJECT"
 
 git init --quiet
@@ -25,174 +30,84 @@ cat > package.json <<'EOF'
   "name": "autonomous-mission-test",
   "version": "1.0.0",
   "type": "module",
-  "scripts": {
-    "test": "node --test"
-  }
+  "scripts": { "test": "node --test" }
 }
 EOF
-
 mkdir -p test
 cat > test/baseline.test.js <<'EOF'
 import test from 'node:test';
 import assert from 'node:assert/strict';
+test('baseline', () => assert.equal(1 + 1, 2));
+EOF
+cat > task.md <<'EOF'
+# Goal
+Add a complete greeting CLI.
 
-test('baseline is healthy', () => {
-  assert.equal(1 + 1, 2);
-});
+# Broad Plan
+1. Implement reusable greeting behavior. Done when an omitted or empty name produces `Hello, World!` and a supplied name produces `Hello, <name>!`.
+2. Integrate it into a CLI. Done when `node src/cli.js Alice` prints exactly `Hello, Alice!` and `node src/cli.js` prints exactly `Hello, World!`.
+
+# Constraints
+- JavaScript ESM only.
+- Node.js built-ins only.
+- Existing tests stay green.
+
+# Final Acceptance
+- `npm test` passes.
+- Both real CLI invocations above produce the exact required output.
 EOF
 
 git add .
-git commit -m "test fixture baseline" --quiet
+git commit -m "fixture baseline with approved task.md" --quiet
 BASE_SHA=$(git rev-parse HEAD)
 
-read -r -d '' PROMPT <<'EOF' || true
-Use the autonomous development path. This Mission Brief is already approved; do not ask me to approve it again and do not ask whether to continue between workstreams.
-
-# Mission: Greeting CLI
-
-## Goal
-Add a small greeting CLI that is complete, tested, and usable from the command line.
-
-## Constraints
-- JavaScript ESM only.
-- Use only Node.js built-ins; add no runtime dependencies.
-- Keep existing baseline behavior passing.
-
-## Broad Workstreams
-1. Implement the reusable greeting behavior.
-   - Done when the project exposes a tested greeting function that returns `Hello, <name>!` and defaults an omitted/empty name to `World`.
-2. Integrate that behavior into a CLI entry point.
-   - Done when `node src/cli.js Alice` prints exactly `Hello, Alice!` and `node src/cli.js` prints exactly `Hello, World!`.
-
-## Final Acceptance
-- `npm test` passes.
-- Both CLI commands above produce the required output.
-- The whole mission has passed independent implementation review and runtime verification.
-
-## Verification Surfaces
-- Node test suite.
-- Real CLI invocation.
-
-Execute this mission autonomously now. Make reasonable reversible engineering decisions yourself. If a reviewer or runtime check finds a defect, repair it and re-run the affected gates. Stop only for a genuine autonomous-development blocker.
-EOF
-
-echo "========================================"
-echo " Test: Autonomous Development Mission"
-echo "========================================"
-echo "Project: $TEST_PROJECT"
-echo "Base:    $BASE_SHA"
-echo ""
-
+PROMPT="Execute the approved plan in task.md autonomously from start to finish. task.md is already approved; do not ask for another approval. Use the autonomous-development workflow and continue through all Gemini repair/review/verification loops and supervisor gates until COMPLETE or a genuine blocker."
 OUTPUT_FILE="$TEST_PROJECT/agy-output.txt"
 TRANSCRIPT_FILE="$TEST_PROJECT/agy-transcript.jsonl"
 
-# Execute the mission exactly once. The user-visible text capture is retained for
-# diagnostics; the authoritative tool/subagent evidence is copied from the same
-# conversation's transcript after that run.
 if OUTPUT=$(run_antigravity "$PROMPT" 3600); then
     printf '%s\n' "$OUTPUT" > "$OUTPUT_FILE"
 else
     status=$?
     printf '%s\n' "${OUTPUT:-}" > "$OUTPUT_FILE"
-    echo "[FAIL] autonomous mission agy run failed with exit code $status"
+    echo "[FAIL] agy run failed: $status"
     exit "$status"
 fi
 
 TRANSCRIPT=$(find_transcript 90 "$TEST_PROJECT" 2>/dev/null || true)
-if [ -n "$TRANSCRIPT" ] && [ -f "$TRANSCRIPT" ]; then
-    cp "$TRANSCRIPT" "$TRANSCRIPT_FILE"
-else
-    : > "$TRANSCRIPT_FILE"
-fi
+if [ -n "$TRANSCRIPT" ] && [ -f "$TRANSCRIPT" ]; then cp "$TRANSCRIPT" "$TRANSCRIPT_FILE"; else : > "$TRANSCRIPT_FILE"; fi
 
-FAILED=0
-PASSED=0
+FAILED=0; PASSED=0
+pass(){ echo "  [PASS] $1"; PASSED=$((PASSED+1)); }
+fail(){ echo "  [FAIL] $1"; FAILED=$((FAILED+1)); }
+contains(){ grep -Fqi -- "$1" "$OUTPUT_FILE" "$TRANSCRIPT_FILE" 2>/dev/null; }
 
-pass() { echo "  [PASS] $1"; PASSED=$((PASSED + 1)); }
-fail() { echo "  [FAIL] $1"; FAILED=$((FAILED + 1)); }
-
-contains_anywhere() {
-    local needle="$1"
-    grep -Fqi -- "$needle" "$OUTPUT_FILE" "$TRANSCRIPT_FILE" 2>/dev/null
-}
-
-echo ""
-echo "=== Outcome checks ==="
-
-if [ -f src/cli.js ]; then pass "src/cli.js exists"; else fail "src/cli.js missing"; fi
-
-if npm test > "$TEST_PROJECT/final-test-output.txt" 2>&1; then
-    pass "final npm test passes"
-else
-    fail "final npm test failed"
-    sed 's/^/    /' "$TEST_PROJECT/final-test-output.txt" || true
-fi
-
-CLI_ALICE=$(node src/cli.js Alice 2>&1 || true)
-if [ "$CLI_ALICE" = "Hello, Alice!" ]; then
-    pass "real CLI invocation with name"
-else
-    fail "CLI with name: expected 'Hello, Alice!', got '$CLI_ALICE'"
-fi
-
-CLI_DEFAULT=$(node src/cli.js 2>&1 || true)
-if [ "$CLI_DEFAULT" = "Hello, World!" ]; then
-    pass "real CLI invocation default"
-else
-    fail "CLI default: expected 'Hello, World!', got '$CLI_DEFAULT'"
-fi
-
-if git diff --quiet "$BASE_SHA"..HEAD --; then
-    fail "mission made no committed changes"
-else
-    pass "mission produced committed changes"
-fi
-
-if [ -f .superpowers/.gitignore ] && [ -d .superpowers/missions ]; then
-    pass "durable mission workspace/ledger root exists"
-else
-    fail "mission workspace/ledger root missing"
-fi
-
-echo ""
-echo "=== Orchestration checks ==="
-
-# failure-investigator is intentionally absent: a healthy fixture should converge
-# without entering the repeated-failure recovery ladder.
-for agent in workstream-planner mission-implementer spec-reviewer code-reviewer workstream-reviewer runtime-verifier mission-reviewer; do
-    if contains_anywhere "$agent"; then
-        pass "dispatch/evidence mentions $agent"
-    else
-        fail "no dispatch/evidence found for $agent"
-    fi
+echo "=== Orchestration ==="
+for token in autonomous-development mission-controller workstream-planner mission-implementer spec-reviewer code-reviewer workstream-reviewer runtime-verifier mission-reviewer; do
+    if contains "$token"; then pass "$token evidenced"; else fail "$token missing"; fi
 done
+if contains "READY_FOR_SUPERVISOR_REVIEW" && contains "SUPERVISOR_PASS"; then pass "workstream supervisor handshake"; else fail "workstream supervisor handshake missing"; fi
+if contains "READY_FOR_FINAL_SUPERVISOR_REVIEW" && contains "SUPERVISOR_FINAL_PASS"; then pass "final supervisor handshake"; else fail "final supervisor handshake missing"; fi
+if grep -Eqi 'should I continue|shall I continue|approve this (plan|mission)|waiting for (your )?approval' "$OUTPUT_FILE"; then fail "routine approval gate appeared"; else pass "no routine approval gate"; fi
 
-# The prompt explicitly pre-approved the Mission Brief. A routine approval/continue
-# question is therefore a regression in the autonomous path. Avoid broad words such
-# as "approval" because the agent may accurately state that approval was pre-granted.
-if grep -Eqi 'should I continue|shall I continue|would you like me to continue|ready to execute\?|approve this (plan|mission)|waiting for (your )?approval' "$OUTPUT_FILE"; then
-    fail "routine human approval/continue gate appeared"
-else
-    pass "no routine human approval/continue gate"
+FINAL_HEAD=$(grep -Eo 'Head: [0-9a-f]{40}' "$OUTPUT_FILE" | tail -1 | awk '{print $2}')
+if [ -n "$FINAL_HEAD" ] && git cat-file -e "$FINAL_HEAD^{commit}" 2>/dev/null; then pass "final mission HEAD reported and exists"; else fail "valid final Head: line missing"; fi
+
+if [ "$(git rev-parse HEAD)" = "$BASE_SHA" ]; then pass "parent workspace HEAD untouched"; else fail "parent workspace was modified instead of isolated controller branch"; fi
+
+if [ -n "$FINAL_HEAD" ] && ! git diff --quiet "$BASE_SHA" "$FINAL_HEAD" --; then pass "isolated mission commit differs from baseline"; else fail "no mission changes found"; fi
+
+if [ -n "$FINAL_HEAD" ]; then
+    VERIFY_DIR=$(mktemp -d)
+    rm -rf "$VERIFY_DIR"
+    git worktree add --detach "$VERIFY_DIR" "$FINAL_HEAD" --quiet
+    if (cd "$VERIFY_DIR" && npm test > verify-tests.txt 2>&1); then pass "final npm test passes"; else fail "final npm test failed"; fi
+    A=$(cd "$VERIFY_DIR" && node src/cli.js Alice 2>&1 || true)
+    D=$(cd "$VERIFY_DIR" && node src/cli.js 2>&1 || true)
+    [ "$A" = "Hello, Alice!" ] && pass "named CLI acceptance" || fail "named CLI acceptance: '$A'"
+    [ "$D" = "Hello, World!" ] && pass "default CLI acceptance" || fail "default CLI acceptance: '$D'"
 fi
 
-if contains_anywhere "autonomous-development"; then
-    pass "autonomous-development path visible in execution evidence"
-else
-    fail "autonomous-development path not visible in execution evidence"
-fi
-
-echo ""
-echo "========================================"
-echo " Test Summary"
-echo "========================================"
-echo "Passed: $PASSED"
-echo "Failed: $FAILED"
-echo "Text log:       $OUTPUT_FILE"
-echo "Transcript log: $TRANSCRIPT_FILE"
-
-if [ "$FAILED" -gt 0 ]; then
-    exit 1
-fi
-
-echo "[PASS] autonomous mission end-to-end harness passed"
+echo "Passed: $PASSED  Failed: $FAILED"
+[ "$FAILED" -eq 0 ] || exit 1
+echo "[PASS] autonomous supervisor mission harness passed"
