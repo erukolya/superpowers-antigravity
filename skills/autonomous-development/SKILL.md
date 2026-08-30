@@ -91,7 +91,7 @@ Bad:
 - Run one command
 - Commit
 
-A workstream may require many internal tasks and repair cycles. That internal structure is the controller's responsibility, not the user's.
+A workstream may require many internal tasks and repair cycles. That internal structure is the autonomous system's responsibility, not the user's.
 
 ### Approval Gate
 
@@ -113,12 +113,14 @@ Dispatch rules:
 
 | Role | Workspace | Responsibility |
 |---|---|---|
+| `workstream-planner` | `inherit` | read-only internal decomposition for one broad workstream |
 | `mission-implementer` | `inherit` | product-code writer for one internal task |
 | `spec-reviewer` | `inherit` | task spec compliance only |
 | `code-reviewer` | `inherit` | task code quality only |
 | `re-reviewer` | `inherit` | scoped fix verification only |
 | `workstream-reviewer` | `inherit` | broad static completeness/integration only |
 | `runtime-verifier` | `inherit` | actual execution evidence only |
+| `failure-investigator` | `inherit` | root-cause diagnosis only; no product edits |
 | `mission-reviewer` | `inherit` | final whole-mission static audit only |
 
 **Only one product-code-writing agent may be active at a time.** Never run multiple `mission-implementer`/fixers concurrently against the shared mission workspace. Read-only agents may overlap only when no product-code write can race with their inspection.
@@ -173,20 +175,26 @@ Runtime verification:
 
 After compaction/session interruption, trust this ledger plus git history over conversational memory. Confirm its branch/HEAD before resuming; never make the user reconstruct progress.
 
-## Phase 3: Internal Workstream Decomposition
+## Phase 3: Internal Workstream Planning
 
-Before implementing a workstream, decompose it internally into reviewable engineering tasks.
+The controller does **not** micro-plan a broad workstream in its own long-lived context.
 
-These tasks are **not user-facing** and require **no user approval**. Add, remove, split, merge, or reorder them as evidence changes.
+For each PENDING workstream:
 
-Right-size by engineering coherence, not duration:
+1. Freeze the current mission HEAD as `WORKSTREAM_BASE_SHA`.
+2. Dispatch a fresh `workstream-planner` with `Workspace: "inherit"` and give it only:
+   - Mission Goal and binding constraints
+   - this broad workstream and `Done when` criteria
+   - current authoritative HEAD
+   - interfaces produced by completed workstreams that this one depends on
+   - relevant rulings/known risks
+3. The planner inspects the real repository and returns coherent internal engineering tasks, dependencies, interface notes, and runtime handoff surfaces.
+4. If it returns a recommended reversible ruling, decide it in the controller, ledger it, and continue. Do not ask the user unless the Human Attention Policy applies.
+5. Write the internal task map to the workstream ledger.
 
-- one meaningful deliverable with a clear boundary
-- small enough for a fresh implementer to understand and review reliably
-- large enough to avoid ceremony-only dispatches
-- concrete verification path exists
+Internal tasks are **not user-facing** and require **no user approval**. Add, remove, split, merge, or reorder them as implementation evidence changes.
 
-Write the internal task list to the workstream ledger. The user does not manage it.
+Right-size by engineering coherence, not duration. Never impose a fixed number of tasks or five-minute steps.
 
 ## Phase 4: Internal Implementation Loop
 
@@ -222,7 +230,7 @@ Internal task completion does not complete a workstream.
 1. Freeze `WORKSTREAM_HEAD_SHA`.
 2. Dispatch `workstream-reviewer` for static outcome completeness/integration on `WORKSTREAM_BASE_SHA..WORKSTREAM_HEAD_SHA`.
 3. If static review FAILS, create repair tasks, run implementation/review loops, and restart the workstream gate on the new HEAD.
-4. When static review PASSES, dispatch `runtime-verifier` for the same `WORKSTREAM_HEAD_SHA`, using the workstream completion criteria plus any runtime-handoff surfaces named by the reviewer.
+4. When static review PASSES, dispatch `runtime-verifier` for the same `WORKSTREAM_HEAD_SHA`, using the workstream completion criteria plus any runtime-handoff surfaces named by the planner/reviewer.
 5. If runtime verification FAILS, feed its concrete evidence into a repair task, review the repair, then restart the workstream gate on the new HEAD.
 6. If runtime verification is BLOCKED, exhaust local/environmental alternatives before applying the Human Attention Policy.
 7. Mark the workstream COMPLETE only when **static review PASS + runtime verification PASS** both refer to the same current HEAD.
@@ -270,13 +278,14 @@ Do not use a small arbitrary retry cap as a substitute for engineering judgment.
 
 When a failure repeats:
 
-1. Resume the owning `mission-implementer` with exact reviewer/verifier evidence.
-2. If the same failure persists without a narrower diagnosis, stop repeating the same edit strategy. Dispatch a fresh implementation context on the same mission workspace and require root-cause analysis before editing.
-3. If that approach is exhausted, re-plan the internal task boundary or choose a materially different implementation strategy; ledger the ruling.
-4. After every repair, rerun all affected static and runtime gates. Never carry PASS across changed code.
-5. Declare `STALLED` only when materially different approaches have failed and latest attempts produce no new diagnostic evidence. Then ask the smallest possible user question with exact evidence and required input.
+1. **Normal repair:** resume the owning `mission-implementer` with exact reviewer/verifier evidence. It diagnoses and fixes, then rerun affected gates.
+2. **Fresh repair context:** if the same failure persists without a materially narrower diagnosis, stop repeating the same agent context. Dispatch a fresh `mission-implementer` on the same mission workspace with the task, current HEAD, failed evidence, and prior attempts.
+3. **Independent diagnosis:** if another repair attempt still does not produce a better causal explanation, dispatch `failure-investigator`. It may reproduce and run focused diagnostics but never edits product code. Give its root-cause report to a fresh `mission-implementer` for repair.
+4. **Re-plan:** if the diagnosed local approach is exhausted, re-dispatch `workstream-planner` against the current HEAD and ask it for a materially different internal decomposition/strategy. Record the controller ruling.
+5. **Re-verify everything affected:** after every repair, rerun affected static and runtime gates. Never carry PASS across changed code.
+6. Declare `STALLED` only when materially different strategies have failed and the latest investigation produces no new diagnostic evidence. Then ask the smallest possible user question with exact evidence and required input.
 
-A repeated failure is a reason to change approach, not lower the gate.
+A repeated failure is a reason to escalate the **quality of diagnosis**, not lower the gate.
 
 ## Phase 6: Mission Gate
 
@@ -323,11 +332,13 @@ Continue unless a Human Attention Policy stop condition applies.
 - One broad approval gate by default.
 - User-facing plans contain broad outcomes, not five-minute steps.
 - Internal decomposition is disposable controller state, not a contract with the user.
+- Delegate detailed workstream planning to a fresh planner rather than bloating controller context.
 - One authoritative mission branch; no disconnected accepted task branches.
 - Only one product-code writer active at a time.
 - Fresh independent static review is required; implementer self-review never substitutes for it.
 - Reviewers do not run tests/browser/runtime checks.
 - Runtime verifier does not review or fix product code.
+- Failure investigator diagnoses but does not fix.
 - Static PASS and runtime PASS are independent and both required.
 - Every PASS is bound to the exact HEAD it verified; relevant changes invalidate it.
 - Frontend/UI behavior requires real browser evidence.
