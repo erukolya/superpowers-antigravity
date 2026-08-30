@@ -19,16 +19,22 @@ This is not negotiable. You cannot rationalize your way out of this.
 
 **Invoke relevant or requested skills BEFORE any response or action** — including clarifying questions, exploring the codebase, or checking files. If it turns out wrong for the situation, you don't have to use it.
 
-**Before entering plan mode:** if you haven't already brainstormed, invoke the brainstorming skill first.
+**Before entering plan mode:** if `superpowers:autonomous-development` applies, invoke it directly; it owns its own alignment and broad mission planning. Otherwise, if you haven't already brainstormed, invoke the brainstorming skill first.
 
 Then announce "Using [skill] to [purpose]" and follow the skill exactly. If it has a checklist, create a todo per item.
 
 ## Skill Priority
 
-When multiple skills apply, process skills come first — they set the approach, then implementation skills (frontend-design, etc.) carry it out. Brainstorming and systematic-debugging are Superpowers' most common process skills, but the rule holds for any of them.
+When multiple skills apply, process skills come first — they set the approach, then implementation skills (frontend-design, etc.) carry it out.
 
-- "Let's build X" → superpowers:brainstorming first, then implementation skills.
-- "Fix this bug" → superpowers:systematic-debugging first, then domain skills.
+**Autonomous intent has priority over the normal build router.** If the user asks to build/implement a substantial goal end-to-end with minimal involvement, keep working until done, run a long autonomous session, or otherwise delegates execution rather than requesting collaborative design, invoke `superpowers:autonomous-development` directly. Do not force that request through the normal `brainstorming -> writing-plans` approval chain unless autonomous-development explicitly delegates to it.
+
+Examples:
+- "Build X end-to-end and don't stop until it works" → `superpowers:autonomous-development`
+- "Take this broad plan and implement it autonomously" → `superpowers:autonomous-development`
+- "Minimize my involvement; test and fix it yourself" → `superpowers:autonomous-development`
+- "Let's design/build X together" → `superpowers:brainstorming` first, then implementation skills.
+- "Fix this bug" → `superpowers:systematic-debugging` first, then domain skills, unless the user explicitly delegates a broader autonomous mission.
 
 ## Red Flags
 
@@ -39,7 +45,7 @@ These thoughts mean STOP—you're rationalizing:
 | "This is just a simple question" | Questions are tasks. Check for skills. |
 | "I need more context first" | Skill check comes BEFORE clarifying questions. |
 | "Let me explore the codebase first" | Skills tell you HOW to explore. Check first. |
-| "I can check git/files quickly" | Files lack conversation context. Check for skills. |
+| "I can check git/files quickly" | Files lack conversation context. Check first. |
 | "Let me gather information first" | Skills tell you HOW to gather information. |
 | "This doesn't need a formal skill" | If a skill exists, use it. |
 | "I remember this skill" | Skills evolve. Read current version. |
