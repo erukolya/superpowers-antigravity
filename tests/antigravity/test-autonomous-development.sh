@@ -84,20 +84,26 @@ echo "Base:    $BASE_SHA"
 echo ""
 
 OUTPUT_FILE="$TEST_PROJECT/agy-output.txt"
-STREAM_FILE="$TEST_PROJECT/agy-stream.jsonl"
+TRANSCRIPT_FILE="$TEST_PROJECT/agy-transcript.jsonl"
 
-# Text output is useful for failure diagnostics; stream-json is the authoritative
-# source for subagent TypeName dispatch assertions.
-OUTPUT=$(run_antigravity "$PROMPT" 3600) || {
+# Execute the mission exactly once. The user-visible text capture is retained for
+# diagnostics; the authoritative tool/subagent evidence is copied from the same
+# conversation's transcript after that run.
+if OUTPUT=$(run_antigravity "$PROMPT" 3600); then
+    printf '%s\n' "$OUTPUT" > "$OUTPUT_FILE"
+else
     status=$?
-    echo "$OUTPUT" > "$OUTPUT_FILE"
+    printf '%s\n' "${OUTPUT:-}" > "$OUTPUT_FILE"
     echo "[FAIL] autonomous mission agy run failed with exit code $status"
     exit "$status"
-}
-echo "$OUTPUT" > "$OUTPUT_FILE"
+fi
 
-STREAM_OUTPUT=$(run_antigravity "$PROMPT" 3600 "stream-json") || true
-printf '%s' "$STREAM_OUTPUT" > "$STREAM_FILE"
+TRANSCRIPT=$(find_transcript 90 "$TEST_PROJECT" 2>/dev/null || true)
+if [ -n "$TRANSCRIPT" ] && [ -f "$TRANSCRIPT" ]; then
+    cp "$TRANSCRIPT" "$TRANSCRIPT_FILE"
+else
+    : > "$TRANSCRIPT_FILE"
+fi
 
 FAILED=0
 PASSED=0
@@ -107,7 +113,7 @@ fail() { echo "  [FAIL] $1"; FAILED=$((FAILED + 1)); }
 
 contains_anywhere() {
     local needle="$1"
-    grep -Fqi -- "$needle" "$OUTPUT_FILE" "$STREAM_FILE" 2>/dev/null
+    grep -Fqi -- "$needle" "$OUTPUT_FILE" "$TRANSCRIPT_FILE" 2>/dev/null
 }
 
 echo ""
@@ -180,8 +186,8 @@ echo " Test Summary"
 echo "========================================"
 echo "Passed: $PASSED"
 echo "Failed: $FAILED"
-echo "Text log:   $OUTPUT_FILE"
-echo "Stream log: $STREAM_FILE"
+echo "Text log:       $OUTPUT_FILE"
+echo "Transcript log: $TRANSCRIPT_FILE"
 
 if [ "$FAILED" -gt 0 ]; then
     exit 1
