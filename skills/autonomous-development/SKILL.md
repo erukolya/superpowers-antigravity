@@ -15,7 +15,7 @@ This is an alternative execution path to the normal `brainstorming -> writing-pl
 
 ## Process Ownership
 
-While this skill is active, `autonomous-development` is the controlling process skill. Do **not** invoke `subagent-driven-development` as a second top-level controller and do not let its terminal branch-finishing step run per workstream. Reuse its bundled agent roles, review discipline, branch/workspace mechanics, and scoped re-review protocol as implementation machinery inside this mission.
+While this skill is active, `autonomous-development` is the controlling process skill. Do **not** invoke `subagent-driven-development` as a second top-level controller and do not let its terminal branch-finishing step run per workstream. Reuse its independent-review and scoped re-review discipline as implementation machinery inside this mission.
 
 If another process skill conflicts with this mission's single-approval, continuous-execution, or workstream-gate rules, this skill owns the autonomous path unless an explicit user instruction says otherwise.
 
@@ -104,7 +104,42 @@ If the user already supplied an approved broad plan and explicitly told you to e
 
 ## Phase 2: Mission Workspace and Ledger
 
-Use an isolated worktree/branch using `superpowers:using-git-worktrees`. Never start implementation directly on main/master without explicit consent.
+### One Authoritative Mission Branch
+
+The autonomous mission uses **one isolated mission branch/workspace** as the authoritative implementation state.
+
+If the parent is on main/master, create a dedicated feature branch for the mission before any code change. If the session already runs in an isolated feature workspace approved for this mission, keep it.
+
+Do **not** create a new isolated git branch for every internal implementation task. Antigravity's `Workspace: "branch"` is useful for isolated subagent experiments, but autonomous sequential work needs every later task and every runtime gate to see the exact accepted HEAD from earlier tasks. The mission therefore uses fresh agent **context** with shared sequential workspace state.
+
+Dispatch rules:
+
+| Role | Workspace | Writes product code? |
+|---|---|---|
+| `mission-implementer` | `inherit` | yes |
+| `spec-reviewer` | `inherit` | no |
+| `code-reviewer` | `inherit` | no |
+| `re-reviewer` | `inherit` | no |
+| `workstream-reviewer` | `inherit` | no |
+| `runtime-verifier` | `inherit` | no product-code writes; ignored verification artifacts only |
+| `mission-reviewer` | `inherit` | no |
+
+**Only one product-code-writing agent may be active at a time.** Never run `mission-implementer` or another fixer concurrently against the shared mission workspace. Parallel read-only research/review is allowed only when it cannot race with a write phase.
+
+Freshness comes from dispatching a fresh subagent conversation for a new internal task, not from giving every task a disconnected git branch.
+
+### Baseline
+
+Before implementation:
+
+1. record `MISSION_BASE_SHA`
+2. confirm the working tree is clean enough to distinguish mission changes from pre-existing user work
+3. run the repository's relevant baseline build/tests when practical
+4. if baseline failures exist, investigate enough to classify them as pre-existing vs mission-blocking and record them in the ledger
+
+Do not ask the user merely because the baseline is imperfect. Continue when failures are demonstrably pre-existing and do not prevent proving the mission. Escalate only if the baseline makes the required mission outcome genuinely unverifiable or unsafe to change.
+
+### Durable State
 
 Create mission state under:
 
@@ -125,6 +160,9 @@ Ensure `.superpowers/` is ignored by git.
 
 ```text
 Mission: ACTIVE | VERIFYING | COMPLETE | BLOCKED
+Mission base: <sha>
+Authoritative branch: <branch>
+Authoritative HEAD: <sha>
 Current workstream: <N/name>
 
 Workstream N: PENDING | ACTIVE | VERIFYING | COMPLETE | BLOCKED
@@ -138,7 +176,7 @@ Verification:
 - ...
 ```
 
-The ledger is authoritative after compaction or session interruption. Resume from it; do not make the user reconstruct progress.
+The ledger is authoritative after compaction or session interruption. Resume from it and confirm its recorded branch/HEAD against git; do not make the user reconstruct progress.
 
 ## Phase 3: Internal Workstream Decomposition
 
@@ -159,10 +197,10 @@ Write the internal task list to the workstream ledger. The user should not have 
 
 ## Phase 4: Internal Implementation Loop
 
-Reuse the proven bundled Superpowers roles and the task-loop mechanics from `superpowers:subagent-driven-development`:
+Use the bundled autonomous `mission-implementer` plus the proven Superpowers reviewer roles:
 
 ```text
-fresh implementer
+fresh mission-implementer
   -> spec-reviewer
   -> code-reviewer
   -> fix
@@ -174,14 +212,17 @@ The autonomous controller owns orchestration. Do not invoke `writing-plans` and 
 
 For each internal task:
 
-1. Capture its BASE SHA.
-2. Dispatch a fresh `implementer` with the full task text, relevant interfaces, approved mission constraints, and the current workstream outcome.
-3. Require the implementer to implement, run the tests/checks appropriate to its change, commit, self-review, and report evidence.
-4. Dispatch `spec-reviewer` against the task text and actual diff. Spec failures are blocking.
-5. After spec PASS, dispatch `code-reviewer`. Critical and Important findings are blocking. Minor findings may be recorded for the workstream/final review.
-6. Send blocking findings back to the implementer and use `re-reviewer` on the fix diff.
-7. Repeat until the task gates pass or the recovery ladder requires a materially different approach.
-8. Update the durable ledger immediately.
+1. Confirm the mission branch is the authoritative workspace and record `TASK_BASE_SHA = HEAD`.
+2. Dispatch a fresh `mission-implementer` with `Workspace: "inherit"`, the full internal task text, relevant interfaces, approved mission constraints, and the current workstream outcome.
+3. Require the implementer to implement, run checks appropriate to its change, commit, self-review, and report `TASK_BASE_SHA..TASK_HEAD_SHA`.
+4. Confirm the reported commit is actually the current mission `HEAD`. If not, do not review stale/disconnected code; reconcile the workspace state before proceeding.
+5. Dispatch `spec-reviewer` with `Workspace: "inherit"` against the task text and `TASK_BASE_SHA..TASK_HEAD_SHA`. Spec failures are blocking.
+6. After spec PASS, dispatch `code-reviewer` with `Workspace: "inherit"`. Critical and Important findings are blocking. Minor findings may be recorded for the workstream/final review.
+7. Send blocking findings back to the same mission-implementer conversation and use `re-reviewer` on the exact fix range after it commits the repair.
+8. Repeat until the task gates pass or the recovery ladder requires a materially different approach.
+9. Update authoritative HEAD and the durable ledger immediately.
+
+A task is accepted only on the exact mission HEAD it reviewed. If product code changes after a review PASS, every affected review/evidence gate becomes stale and must be repeated at the appropriate scope.
 
 Reviewers do not replace runtime verification. Passing code review means the implementation is credible in code; it does not prove the system works in the running environment.
 
@@ -191,15 +232,16 @@ A workstream is not complete because all internal tasks say DONE.
 
 After its internal tasks pass their review loops:
 
-1. Dispatch `workstream-reviewer` with:
+1. Freeze and record `WORKSTREAM_HEAD_SHA`.
+2. Dispatch `workstream-reviewer` with `Workspace: "inherit"` and:
    - the approved workstream outcome and completion criteria
-   - workstream BASE..HEAD
+   - workstream BASE..WORKSTREAM_HEAD_SHA
    - internal task summaries and outstanding Minor findings
    - verification reports available so far
-2. If the reviewer returns FAIL, create internal repair tasks and run the normal implementation/review loop.
-3. Dispatch `runtime-verifier` for the workstream.
-4. If runtime verification FAILS, feed the concrete failure evidence into a repair task, review the repair, then re-run the relevant runtime verification.
-5. Mark the workstream COMPLETE only when both the workstream review and required runtime verification are PASS.
+3. If the reviewer returns FAIL, create internal repair tasks and run the normal implementation/review loop. Then restart the workstream gate on the new HEAD.
+4. Dispatch `runtime-verifier` with `Workspace: "inherit"` for the same `WORKSTREAM_HEAD_SHA`.
+5. If runtime verification FAILS, feed the concrete failure evidence into a repair task, review the repair, then restart the affected workstream gate on the new HEAD.
+6. Mark the workstream COMPLETE only when both the workstream review and required runtime verification are PASS for the **same current HEAD**.
 
 `UNVERIFIABLE` is not PASS. Either obtain the missing evidence automatically or follow the Human Attention Policy if the evidence truly requires user-only access.
 
@@ -246,8 +288,8 @@ Do not use an arbitrary small retry cap as a substitute for engineering judgment
 
 When a failure repeats:
 
-1. **First repair:** resume the implementer with the exact failing evidence.
-2. **If the same failure persists without a narrower diagnosis:** use a fresh implementer/reasoning context and require root-cause analysis before editing.
+1. **First repair:** resume the mission-implementer with the exact failing evidence.
+2. **If the same failure persists without a narrower diagnosis:** end that implementer's ownership and dispatch a fresh `mission-implementer` on the same mission workspace with the task, current HEAD, prior evidence, and a requirement to establish root cause before editing.
 3. **If the local approach is exhausted:** re-plan the internal workstream decomposition or choose a materially different implementation strategy; record the ruling.
 4. **Re-run static review and the affected runtime gate after every repair.** Never carry a PASS across code that changed underneath it.
 5. **Declare STALLED only when materially different approaches have failed and the latest attempts produce no new diagnostic evidence.** Then ask the smallest possible user question, with the evidence and the exact decision/input needed.
@@ -258,18 +300,19 @@ A repeated failure is a reason to change the approach, not a reason to lower the
 
 After all workstreams are COMPLETE, verify the original mission rather than merely checking that the task list is empty.
 
-1. Dispatch `mission-reviewer` with:
+1. Freeze and record `MISSION_HEAD_SHA`.
+2. Dispatch `mission-reviewer` with `Workspace: "inherit"` and:
    - original approved Mission Brief
-   - merge-base..HEAD for the entire mission
+   - MISSION_BASE_SHA..MISSION_HEAD_SHA for the entire mission
    - all workstream review results
    - all runtime verification evidence
    - unresolved Minor/known-risk ledger entries
-2. Run final end-to-end `runtime-verifier` checks for any acceptance criteria that span multiple workstreams.
-3. If either gate FAILS, create repair workstreams/tasks and continue autonomously through implementation -> review -> verification again.
-4. Mission is COMPLETE only when:
+3. Run final end-to-end `runtime-verifier` checks for any acceptance criteria that span multiple workstreams, on the same MISSION_HEAD_SHA.
+4. If either gate FAILS, create repair workstreams/tasks and continue autonomously through implementation -> review -> verification again. All affected prior evidence becomes stale.
+5. Mission is COMPLETE only when:
    - every required workstream is COMPLETE
-   - mission-reviewer = PASS
-   - every required runtime/end-to-end verification = PASS
+   - mission-reviewer = PASS on the current mission HEAD
+   - every required runtime/end-to-end verification = PASS on the current mission HEAD
    - no unresolved Critical or Important finding remains
    - the implementation satisfies the original user-visible goal, not merely the internal plan
 
@@ -300,6 +343,9 @@ Progress reporting is informational. Continue working unless a Human Attention P
 - User-facing plans contain broad outcomes, not five-minute steps.
 - Internal decomposition is disposable controller state, not a contract with the user.
 - Fresh independent review is required; implementer self-review never substitutes for it.
+- Use one authoritative mission branch; do not strand accepted internal tasks on disconnected task branches.
+- Only one product-code writer may be active at a time on the mission workspace.
+- Every review/runtime PASS is bound to the exact HEAD it verified; relevant code changes invalidate it.
 - Review PASS never substitutes for runtime evidence when runtime behavior is part of the goal.
 - Frontend/UI behavior requires a real browser gate.
 - A failed gate triggers repair and re-verification automatically.
