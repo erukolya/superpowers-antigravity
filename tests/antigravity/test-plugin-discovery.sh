@@ -84,6 +84,7 @@ assert_contains "$OUTPUT" "superpowers" "Output mentions 'superpowers'" || FAILE
 
 # Check for key skill names in the output
 EXPECTED_SKILLS=(
+    "autonomous-development"
     "writing-plans"
     "systematic-debugging"
     "test-driven-development"

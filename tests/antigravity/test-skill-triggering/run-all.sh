@@ -15,6 +15,7 @@ if ! command -v agy &>/dev/null; then
 fi
 
 SKILLS=(
+    "autonomous-development"
     "systematic-debugging"
     "test-driven-development"
     "writing-plans"

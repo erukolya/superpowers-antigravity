@@ -13,6 +13,12 @@ Turn a broad development goal into working, verified software while minimizing h
 
 This is an alternative execution path to the normal `brainstorming -> writing-plans -> subagent-driven-development` flow. Do not invoke `writing-plans` for this path. The user-facing plan stays broad; detailed decomposition is internal and may change as evidence arrives.
 
+## Process Ownership
+
+While this skill is active, `autonomous-development` is the controlling process skill. Do **not** invoke `subagent-driven-development` as a second top-level controller and do not let its terminal branch-finishing step run per workstream. Reuse its bundled agent roles, review discipline, branch/workspace mechanics, and scoped re-review protocol as implementation machinery inside this mission.
+
+If another process skill conflicts with this mission's single-approval, continuous-execution, or workstream-gate rules, this skill owns the autonomous path unless an explicit user instruction says otherwise.
+
 ## When This Skill Owns the Request
 
 Use this skill when the user asks for any equivalent of:
