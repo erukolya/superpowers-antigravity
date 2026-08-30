@@ -157,7 +157,9 @@ fi
 echo ""
 echo "=== Orchestration checks ==="
 
-for agent in mission-implementer spec-reviewer code-reviewer workstream-reviewer runtime-verifier mission-reviewer; do
+# failure-investigator is intentionally absent: a healthy fixture should converge
+# without entering the repeated-failure recovery ladder.
+for agent in workstream-planner mission-implementer spec-reviewer code-reviewer workstream-reviewer runtime-verifier mission-reviewer; do
     if contains_anywhere "$agent"; then
         pass "dispatch/evidence mentions $agent"
     else
