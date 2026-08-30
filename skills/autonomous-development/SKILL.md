@@ -1,6 +1,6 @@
 ---
 name: autonomous-development
-description: Use when the user wants a substantial development goal completed end-to-end with minimal human involvement, autonomous execution, or a long-running build/fix/verify loop. Owns broad planning, internal decomposition, implementation, review, runtime verification, recovery, and final mission acceptance.
+description: Use when the user wants a substantial development goal completed end-to-end with minimal human involvement, autonomous execution, or a long-running build/fix/verify loop. Owns broad planning, internal decomposition, implementation, independent review, runtime verification, recovery, and final mission acceptance.
 ---
 
 # Autonomous Development
@@ -9,15 +9,15 @@ Turn a broad development goal into working, verified software while minimizing h
 
 **Primary optimization target:** human attention, not tokens, agent count, test count, or elapsed time.
 
-**Core principle:** Align once on the outcome, then keep working until the outcome is independently reviewed and verified in the real execution environment.
+**Core principle:** Align once on the outcome, then keep working until the outcome is independently reviewed and independently verified in the real execution environment.
 
 This is an alternative execution path to the normal `brainstorming -> writing-plans -> subagent-driven-development` flow. Do not invoke `writing-plans` for this path. The user-facing plan stays broad; detailed decomposition is internal and may change as evidence arrives.
 
 ## Process Ownership
 
-While this skill is active, `autonomous-development` is the controlling process skill. Do **not** invoke `subagent-driven-development` as a second top-level controller and do not let its terminal branch-finishing step run per workstream. Reuse its independent-review and scoped re-review discipline as implementation machinery inside this mission.
+While this skill is active, `autonomous-development` is the controlling process skill. Do **not** invoke `subagent-driven-development` as a second top-level controller. Reuse its proven spec-review, code-review, fix, and scoped re-review discipline inside this mission.
 
-If another process skill conflicts with this mission's single-approval, continuous-execution, or workstream-gate rules, this skill owns the autonomous path unless an explicit user instruction says otherwise.
+If another process skill conflicts with this mission's single-approval, continuous-execution, or gate rules, this skill owns the autonomous path unless an explicit user instruction says otherwise.
 
 ## When This Skill Owns the Request
 
@@ -35,15 +35,15 @@ If the user asks for a normal collaborative design session instead, use `superpo
 
 A running mission does not stop for routine engineering decisions.
 
-Resolve ambiguity yourself when the decision is reversible and can be grounded in the repository, tests, docs, established project patterns, or the approved mission brief. Record important decisions as rulings in the mission ledger.
+Resolve ambiguity yourself when the decision is reversible and can be grounded in repository code, tests, docs, established project patterns, or the approved Mission Brief. Record important decisions as rulings in the mission ledger.
 
 Ask the user only when at least one of these is true:
 
-1. **Product intent is genuinely underdetermined** — two plausible choices create materially different user-visible behavior and repository evidence cannot resolve it.
+1. **Product intent is genuinely underdetermined** — plausible choices create materially different user-visible behavior and repository evidence cannot resolve it.
 2. **The action is irreversible or destructive** — destructive data/schema operations, irreversible migrations, deletion of user data, or equivalent risk.
-3. **The action creates an external side effect that normally requires consent** — publishing, deploying, merging/pushing to a shared branch, spending money, sending messages, changing external services.
-4. **A required secret, credential, device, service, or environment is unavailable** and there is no local substitute that can prove the requirement.
-5. **The mission is genuinely stalled** after the recovery ladder below has exhausted materially different approaches and no new evidence is being produced.
+3. **The action creates an external side effect that normally requires consent** — publishing, deploying, merging/pushing to a shared branch, spending money, sending messages, or changing external services.
+4. **A required secret, credential, device, service, or environment is unavailable** and no local substitute can prove the requirement.
+5. **The mission is genuinely stalled** after materially different recovery approaches have failed and no new diagnostic evidence is being produced.
 
 Do not ask the user to choose implementation details merely because multiple reasonable implementations exist. Choose one, record the ruling, and continue.
 
@@ -51,13 +51,13 @@ Do not ask the user to choose implementation details merely because multiple rea
 
 Explore the repository enough to understand the existing system before asking questions. Prefer repository evidence over questions.
 
-Create a **Mission Brief** with only the level of detail the user should care about:
+Create a **Mission Brief** at the level the user should care about:
 
 ```markdown
 # Mission: <name>
 
 ## Goal
-<the user-visible outcome>
+<user-visible outcome>
 
 ## Constraints
 <binding constraints and non-negotiables>
@@ -67,13 +67,12 @@ Create a **Mission Brief** with only the level of detail the user should care ab
    - Done when: <observable completion criteria>
 2. <outcome-oriented workstream>
    - Done when: <observable completion criteria>
-...
 
 ## Final Acceptance
-<what must be true for the whole mission to be considered done>
+<what must be true for the whole mission to be done>
 
 ## Verification Surfaces
-<which surfaces require build/test/API/browser/runtime/database/CLI/etc. evidence>
+<build/test/API/browser/runtime/database/CLI/etc. surfaces that require evidence>
 ```
 
 ### Broad Means Broad
@@ -87,46 +86,42 @@ Good:
 
 Bad:
 - Add one DTO
-- Write one failing test
+- Write one test
 - Change one method
 - Run one command
 - Commit
 
-A workstream may take many internal tasks and many repair cycles. That internal structure is the controller's responsibility, not the user's.
+A workstream may require many internal tasks and repair cycles. That internal structure is the controller's responsibility, not the user's.
 
 ### Approval Gate
 
 Default to exactly **one user approval gate** before implementation: approval of the Mission Brief.
 
-Do not ask for separate approval of each section, each workstream, the internal task plan, reviewer findings, fixes, or verification retries.
+Do not ask for separate approval of each section, workstream, internal task plan, reviewer finding, fix, or verification retry.
 
-If the user already supplied an approved broad plan and explicitly told you to execute it autonomously, treat that as approval and begin execution without asking again.
+If the user already supplied an approved broad plan and explicitly told you to execute autonomously, treat that as approval and begin without asking again.
 
-## Phase 2: Mission Workspace and Ledger
+## Phase 2: One Authoritative Mission Workspace
 
-### One Authoritative Mission Branch
+The mission uses **one isolated mission branch/workspace** as the authoritative implementation state.
 
-The autonomous mission uses **one isolated mission branch/workspace** as the authoritative implementation state.
+If the parent is on main/master, create a dedicated mission feature branch before code changes. If already in an isolated feature workspace approved for this mission, keep it.
 
-If the parent is on main/master, create a dedicated feature branch for the mission before any code change. If the session already runs in an isolated feature workspace approved for this mission, keep it.
-
-Do **not** create a new isolated git branch for every internal implementation task. Antigravity's `Workspace: "branch"` is useful for isolated subagent experiments, but autonomous sequential work needs every later task and every runtime gate to see the exact accepted HEAD from earlier tasks. The mission therefore uses fresh agent **context** with shared sequential workspace state.
+Do **not** create an isolated git branch per internal task. Antigravity `Workspace: "branch"` creates a disconnected worktree; sequential autonomous work needs every later task and every gate to see the exact accepted HEAD from prior work. Freshness comes from fresh agent context, not disconnected task branches.
 
 Dispatch rules:
 
-| Role | Workspace | Writes product code? |
+| Role | Workspace | Responsibility |
 |---|---|---|
-| `mission-implementer` | `inherit` | yes |
-| `spec-reviewer` | `inherit` | no |
-| `code-reviewer` | `inherit` | no |
-| `re-reviewer` | `inherit` | no |
-| `workstream-reviewer` | `inherit` | no |
-| `runtime-verifier` | `inherit` | no product-code writes; ignored verification artifacts only |
-| `mission-reviewer` | `inherit` | no |
+| `mission-implementer` | `inherit` | product-code writer for one internal task |
+| `spec-reviewer` | `inherit` | task spec compliance only |
+| `code-reviewer` | `inherit` | task code quality only |
+| `re-reviewer` | `inherit` | scoped fix verification only |
+| `workstream-reviewer` | `inherit` | broad static completeness/integration only |
+| `runtime-verifier` | `inherit` | actual execution evidence only |
+| `mission-reviewer` | `inherit` | final whole-mission static audit only |
 
-**Only one product-code-writing agent may be active at a time.** Never run `mission-implementer` or another fixer concurrently against the shared mission workspace. Parallel read-only research/review is allowed only when it cannot race with a write phase.
-
-Freshness comes from dispatching a fresh subagent conversation for a new internal task, not from giving every task a disconnected git branch.
+**Only one product-code-writing agent may be active at a time.** Never run multiple `mission-implementer`/fixers concurrently against the shared mission workspace. Read-only agents may overlap only when no product-code write can race with their inspection.
 
 ### Baseline
 
@@ -134,14 +129,14 @@ Before implementation:
 
 1. record `MISSION_BASE_SHA`
 2. confirm the working tree is clean enough to distinguish mission changes from pre-existing user work
-3. run the repository's relevant baseline build/tests when practical
-4. if baseline failures exist, investigate enough to classify them as pre-existing vs mission-blocking and record them in the ledger
+3. run relevant baseline build/tests when practical
+4. classify baseline failures as pre-existing vs mission-blocking and record them
 
-Do not ask the user merely because the baseline is imperfect. Continue when failures are demonstrably pre-existing and do not prevent proving the mission. Escalate only if the baseline makes the required mission outcome genuinely unverifiable or unsafe to change.
+Do not ask the user merely because baseline is imperfect. Continue when failures are demonstrably pre-existing and do not prevent proving the mission.
 
 ### Durable State
 
-Create mission state under:
+Create:
 
 ```text
 <repo-root>/.superpowers/missions/<mission-slug>/
@@ -152,11 +147,9 @@ Create mission state under:
   verification/
 ```
 
-Ensure `.superpowers/` is ignored by git.
+Create `.superpowers/.gitignore` with `*` so mission state and temporary verification artifacts stay out of product commits.
 
-`mission.md` contains the approved Mission Brief.
-
-`progress.md` is the durable controller state. Track:
+`mission.md` contains the approved Mission Brief. `progress.md` is the durable controller state:
 
 ```text
 Mission: ACTIVE | VERIFYING | COMPLETE | BLOCKED
@@ -172,183 +165,173 @@ Rulings:
 - ...
 Open findings:
 - ...
-Verification:
+Review:
+- ...
+Runtime verification:
 - ...
 ```
 
-The ledger is authoritative after compaction or session interruption. Resume from it and confirm its recorded branch/HEAD against git; do not make the user reconstruct progress.
+After compaction/session interruption, trust this ledger plus git history over conversational memory. Confirm its branch/HEAD before resuming; never make the user reconstruct progress.
 
 ## Phase 3: Internal Workstream Decomposition
 
-Before implementing a workstream, decompose it internally into reviewable implementation tasks.
+Before implementing a workstream, decompose it internally into reviewable engineering tasks.
 
-These tasks are **not user-facing** and require **no user approval**. They may be added, removed, split, merged, or reordered as implementation evidence changes.
+These tasks are **not user-facing** and require **no user approval**. Add, remove, split, merge, or reorder them as evidence changes.
 
-Right-size an internal task by engineering coherence:
+Right-size by engineering coherence, not duration:
 
 - one meaningful deliverable with a clear boundary
 - small enough for a fresh implementer to understand and review reliably
 - large enough to avoid ceremony-only dispatches
-- has a concrete way to verify its behavior
+- concrete verification path exists
 
-Do not optimize for a fixed duration or a fixed number of files.
-
-Write the internal task list to the workstream ledger. The user should not have to manage it.
+Write the internal task list to the workstream ledger. The user does not manage it.
 
 ## Phase 4: Internal Implementation Loop
 
-Use the bundled autonomous `mission-implementer` plus the proven Superpowers reviewer roles:
+For each internal task:
 
 ```text
 fresh mission-implementer
   -> spec-reviewer
   -> code-reviewer
-  -> fix
+  -> fix when needed
   -> scoped re-review
   -> task accepted
 ```
 
-The autonomous controller owns orchestration. Do not invoke `writing-plans` and do not ask for approval between internal tasks.
+1. Confirm authoritative mission branch and record `TASK_BASE_SHA = HEAD`.
+2. Dispatch a fresh `mission-implementer` with `Workspace: "inherit"`, full task text, current workstream outcome, binding mission constraints, and relevant interfaces.
+3. Implementer writes code/tests, runs appropriate checks, self-reviews, commits, and reports `TASK_BASE_SHA..TASK_HEAD_SHA`.
+4. Confirm its commit is the current mission HEAD. Never review stale/disconnected code.
+5. Dispatch `spec-reviewer` against task text and exact diff. Any spec failure is blocking.
+6. After spec PASS, dispatch `code-reviewer`. Critical and Important findings are blocking; Minor findings may be ledgered for broad/final review.
+7. Send blocking findings back to the same implementer conversation. After each committed repair, dispatch `re-reviewer` on the exact fix range.
+8. Continue until task gates pass or the Recovery Ladder changes the approach.
+9. Update authoritative HEAD and ledger immediately.
 
-For each internal task:
+**Reviewers never test.** Implementer verification is useful engineering feedback, but neither implementer test claims nor review PASS replace the later independent runtime gate.
 
-1. Confirm the mission branch is the authoritative workspace and record `TASK_BASE_SHA = HEAD`.
-2. Dispatch a fresh `mission-implementer` with `Workspace: "inherit"`, the full internal task text, relevant interfaces, approved mission constraints, and the current workstream outcome.
-3. Require the implementer to implement, run checks appropriate to its change, commit, self-review, and report `TASK_BASE_SHA..TASK_HEAD_SHA`.
-4. Confirm the reported commit is actually the current mission `HEAD`. If not, do not review stale/disconnected code; reconcile the workspace state before proceeding.
-5. Dispatch `spec-reviewer` with `Workspace: "inherit"` against the task text and `TASK_BASE_SHA..TASK_HEAD_SHA`. Spec failures are blocking.
-6. After spec PASS, dispatch `code-reviewer` with `Workspace: "inherit"`. Critical and Important findings are blocking. Minor findings may be recorded for the workstream/final review.
-7. Send blocking findings back to the same mission-implementer conversation and use `re-reviewer` on the exact fix range after it commits the repair.
-8. Repeat until the task gates pass or the recovery ladder requires a materially different approach.
-9. Update authoritative HEAD and the durable ledger immediately.
-
-A task is accepted only on the exact mission HEAD it reviewed. If product code changes after a review PASS, every affected review/evidence gate becomes stale and must be repeated at the appropriate scope.
-
-Reviewers do not replace runtime verification. Passing code review means the implementation is credible in code; it does not prove the system works in the running environment.
+A task PASS is bound to the exact HEAD reviewed. Relevant product-code changes make affected review evidence stale.
 
 ## Phase 5: Workstream Gate
 
-A workstream is not complete because all internal tasks say DONE.
+Internal task completion does not complete a workstream.
 
-After its internal tasks pass their review loops:
+1. Freeze `WORKSTREAM_HEAD_SHA`.
+2. Dispatch `workstream-reviewer` for static outcome completeness/integration on `WORKSTREAM_BASE_SHA..WORKSTREAM_HEAD_SHA`.
+3. If static review FAILS, create repair tasks, run implementation/review loops, and restart the workstream gate on the new HEAD.
+4. When static review PASSES, dispatch `runtime-verifier` for the same `WORKSTREAM_HEAD_SHA`, using the workstream completion criteria plus any runtime-handoff surfaces named by the reviewer.
+5. If runtime verification FAILS, feed its concrete evidence into a repair task, review the repair, then restart the workstream gate on the new HEAD.
+6. If runtime verification is BLOCKED, exhaust local/environmental alternatives before applying the Human Attention Policy.
+7. Mark the workstream COMPLETE only when **static review PASS + runtime verification PASS** both refer to the same current HEAD.
 
-1. Freeze and record `WORKSTREAM_HEAD_SHA`.
-2. Dispatch `workstream-reviewer` with `Workspace: "inherit"` and:
-   - the approved workstream outcome and completion criteria
-   - workstream BASE..WORKSTREAM_HEAD_SHA
-   - internal task summaries and outstanding Minor findings
-   - verification reports available so far
-3. If the reviewer returns FAIL, create internal repair tasks and run the normal implementation/review loop. Then restart the workstream gate on the new HEAD.
-4. Dispatch `runtime-verifier` with `Workspace: "inherit"` for the same `WORKSTREAM_HEAD_SHA`.
-5. If runtime verification FAILS, feed the concrete failure evidence into a repair task, review the repair, then restart the affected workstream gate on the new HEAD.
-6. Mark the workstream COMPLETE only when both the workstream review and required runtime verification are PASS for the **same current HEAD**.
-
-`UNVERIFIABLE` is not PASS. Either obtain the missing evidence automatically or follow the Human Attention Policy if the evidence truly requires user-only access.
+Static review and runtime verification are separate authorities. Neither may infer the other's verdict.
 
 ## Runtime Verification Policy
 
-Verification is selected by the behavior changed, not by a fixed ritual or test count.
-
-Examples:
+Verification is selected from changed behavior, not a fixed ritual or fixed test count.
 
 | Changed surface | Required evidence |
 |---|---|
 | Pure library/domain logic | focused tests + relevant integration/full-suite evidence |
-| Backend/API | build/tests plus an actual API/service path when practical |
-| Database/schema/query | migration/query/integration evidence against a disposable or approved environment |
-| CLI/tooling | invoke the actual command and inspect exit/output |
+| Backend/API | build/tests plus actual service/API path when practical |
+| Database/schema/query | migration/query/integration evidence against disposable or approved environment |
+| CLI/tooling | invoke the real command and inspect output/exit/state |
 | Frontend/UI | **real browser verification is mandatory** |
-| Canvas/WebGL/3D viewer | browser verification must prove the canvas/viewer actually renders and the affected interaction works; DOM presence alone is insufficient |
-| Cross-layer feature | end-to-end evidence across the affected layers |
-| Docs-only change | render/lint/link checks as relevant; no fake runtime gate |
+| Canvas/WebGL/3D viewer | browser proves meaningful rendering plus affected interaction; DOM presence alone is insufficient |
+| Cross-layer feature | end-to-end evidence across affected layers |
+| Docs-only | relevant render/lint/link checks; no fake runtime gate |
 
-There is no target number of tests. Run as many checks and repair cycles as are necessary to establish the required evidence after the latest code changes.
+There is no target test count. Run as many checks and repair cycles as necessary to establish fresh evidence for the current HEAD.
 
-## Frontend Browser Gate
+### Frontend Browser Gate
 
-For any workstream that changes observable frontend behavior, `runtime-verifier` must exercise the affected flow in a real browser before the workstream can pass.
+For observable frontend changes, `runtime-verifier` must exercise the affected flow in a real browser before the workstream can pass.
 
-Required evidence should cover what is relevant to the workstream:
+Relevant evidence includes:
 
 - page/application actually loads
-- changed user flow can be performed
+- affected user flow is performed
 - expected visible state appears
-- browser console has no new relevant errors
-- relevant network requests do not fail unexpectedly
-- screenshots or equivalent artifacts capture the tested state
-- for canvas/WebGL/3D work: the rendering surface is non-empty/meaningful and the affected interaction is exercised
+- no new relevant console/page errors
+- relevant network requests do not unexpectedly fail
+- screenshots/artifacts capture the tested state
+- Canvas/WebGL/3D: rendering surface is meaningfully rendered and affected interaction/state is exercised
 
-Prefer the project's existing Playwright/Cypress/E2E harness. If no browser harness exists, the verifier may create an **ephemeral, ignored** Playwright probe under `.superpowers/missions/<mission>/verification/` and run it without committing test infrastructure merely to satisfy the gate.
+Prefer existing Playwright/Cypress/E2E harness. If none exists, the verifier may create an **ephemeral ignored** browser probe under `.superpowers/missions/<mission>/verification/`. Do not commit verification scaffolding merely to satisfy the gate.
 
-The built-in `/browser` workflow may be used when available, but autonomous completion must not depend on the user manually running it if a command-line browser harness can prove the same behavior.
+The built-in `/browser` workflow may be used when available, but autonomous completion must not require the user to manually invoke it when a command-line browser harness can prove the same behavior.
 
 ## Recovery Ladder
 
-Do not use an arbitrary small retry cap as a substitute for engineering judgment. Continue while the loop is producing new evidence, narrowing the failure, or changing the implementation meaningfully.
+Do not use a small arbitrary retry cap as a substitute for engineering judgment. Continue while attempts produce new evidence, narrow the failure, or materially change the approach.
 
 When a failure repeats:
 
-1. **First repair:** resume the mission-implementer with the exact failing evidence.
-2. **If the same failure persists without a narrower diagnosis:** end that implementer's ownership and dispatch a fresh `mission-implementer` on the same mission workspace with the task, current HEAD, prior evidence, and a requirement to establish root cause before editing.
-3. **If the local approach is exhausted:** re-plan the internal workstream decomposition or choose a materially different implementation strategy; record the ruling.
-4. **Re-run static review and the affected runtime gate after every repair.** Never carry a PASS across code that changed underneath it.
-5. **Declare STALLED only when materially different approaches have failed and the latest attempts produce no new diagnostic evidence.** Then ask the smallest possible user question, with the evidence and the exact decision/input needed.
+1. Resume the owning `mission-implementer` with exact reviewer/verifier evidence.
+2. If the same failure persists without a narrower diagnosis, stop repeating the same edit strategy. Dispatch a fresh implementation context on the same mission workspace and require root-cause analysis before editing.
+3. If that approach is exhausted, re-plan the internal task boundary or choose a materially different implementation strategy; ledger the ruling.
+4. After every repair, rerun all affected static and runtime gates. Never carry PASS across changed code.
+5. Declare `STALLED` only when materially different approaches have failed and latest attempts produce no new diagnostic evidence. Then ask the smallest possible user question with exact evidence and required input.
 
-A repeated failure is a reason to change the approach, not a reason to lower the gate.
+A repeated failure is a reason to change approach, not lower the gate.
 
 ## Phase 6: Mission Gate
 
-After all workstreams are COMPLETE, verify the original mission rather than merely checking that the task list is empty.
+After all workstreams are COMPLETE, verify the **original mission**, not whether a checklist is empty.
 
-1. Freeze and record `MISSION_HEAD_SHA`.
-2. Dispatch `mission-reviewer` with `Workspace: "inherit"` and:
-   - original approved Mission Brief
-   - MISSION_BASE_SHA..MISSION_HEAD_SHA for the entire mission
-   - all workstream review results
-   - all runtime verification evidence
-   - unresolved Minor/known-risk ledger entries
-3. Run final end-to-end `runtime-verifier` checks for any acceptance criteria that span multiple workstreams, on the same MISSION_HEAD_SHA.
-4. If either gate FAILS, create repair workstreams/tasks and continue autonomously through implementation -> review -> verification again. All affected prior evidence becomes stale.
-5. Mission is COMPLETE only when:
+1. Freeze `MISSION_HEAD_SHA`.
+2. Dispatch `mission-reviewer` on `MISSION_BASE_SHA..MISSION_HEAD_SHA` with the original Mission Brief, constraints, workstream review reports, and unresolved non-blocking risks. It performs static whole-mission completeness/integration review only.
+3. If mission review FAILS, create repair workstream/tasks, run their normal loops, and restart the mission gate on the new HEAD.
+4. When mission review PASSES, dispatch `runtime-verifier` for all Final Acceptance criteria, especially cross-workstream/end-to-end behavior, on that same `MISSION_HEAD_SHA`.
+5. If final runtime FAILS, create repair workstream/tasks and repeat static + runtime gates after changes.
+6. If final runtime is BLOCKED, exhaust local alternatives before escalating.
+7. Mission is COMPLETE only when:
    - every required workstream is COMPLETE
-   - mission-reviewer = PASS on the current mission HEAD
-   - every required runtime/end-to-end verification = PASS on the current mission HEAD
+   - `mission-reviewer` = PASS on current mission HEAD
+   - final `runtime-verifier` = PASS on current mission HEAD
    - no unresolved Critical or Important finding remains
-   - the implementation satisfies the original user-visible goal, not merely the internal plan
+   - original user-visible goal is actually satisfied
 
-Do not report percentages. The terminal states are:
+Terminal states only:
 
-- `COMPLETE` — independently reviewed and required runtime evidence is green
-- `BLOCKED` — one of the Human Attention Policy stop conditions genuinely prevents further progress
+- `COMPLETE` — independently reviewed and independently runtime-verified
+- `BLOCKED` — Human Attention Policy stop condition genuinely prevents further progress
+
+Do not report completion percentages.
 
 ## User Communication During Execution
 
-Keep the user informed without turning progress into approval gates.
+Progress updates are informational, never approval gates.
 
-Good updates:
-- "Backend workstream passed review; runtime verification found an API serialization defect. Fixing it now."
-- "Frontend implementation is complete, but browser verification caught a broken selection flow. Repair loop is active."
+Good:
+- "Backend workstream passed static review; runtime verification found an API serialization defect. Repair loop is active."
+- "Frontend code review is clean, but browser verification caught a broken selection flow. Fixing and re-running the gate."
 
-Bad updates:
+Bad:
 - "Task 7 finished. Continue?"
 - "Reviewer found two issues. Which should I fix?"
 - "Tests failed. What do you want me to do?"
 
-Progress reporting is informational. Continue working unless a Human Attention Policy stop condition applies.
+Continue unless a Human Attention Policy stop condition applies.
 
 ## Non-Negotiable Rules
 
 - Optimize for minimum human intervention.
-- One broad approval gate by default, not one approval per implementation decision.
+- One broad approval gate by default.
 - User-facing plans contain broad outcomes, not five-minute steps.
 - Internal decomposition is disposable controller state, not a contract with the user.
-- Fresh independent review is required; implementer self-review never substitutes for it.
-- Use one authoritative mission branch; do not strand accepted internal tasks on disconnected task branches.
-- Only one product-code writer may be active at a time on the mission workspace.
-- Every review/runtime PASS is bound to the exact HEAD it verified; relevant code changes invalidate it.
-- Review PASS never substitutes for runtime evidence when runtime behavior is part of the goal.
-- Frontend/UI behavior requires a real browser gate.
-- A failed gate triggers repair and re-verification automatically.
-- Do not lower a gate because repair is expensive, slow, or token-heavy.
-- Do not stop just because a predefined retry count was reached.
+- One authoritative mission branch; no disconnected accepted task branches.
+- Only one product-code writer active at a time.
+- Fresh independent static review is required; implementer self-review never substitutes for it.
+- Reviewers do not run tests/browser/runtime checks.
+- Runtime verifier does not review or fix product code.
+- Static PASS and runtime PASS are independent and both required.
+- Every PASS is bound to the exact HEAD it verified; relevant changes invalidate it.
+- Frontend/UI behavior requires real browser evidence.
+- Failed gates trigger repair and re-verification automatically.
+- Never lower a gate because repair is expensive, slow, or token-heavy.
+- Never stop solely because a predefined retry count was reached.
 - Never claim COMPLETE while required evidence is missing or stale.
