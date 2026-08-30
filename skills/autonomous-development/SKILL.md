@@ -1,6 +1,6 @@
 ---
 name: autonomous-development
-description: Use when the user wants a substantial development goal completed end-to-end with minimal human involvement, autonomous execution, or a long-running build/fix/verify loop. Owns broad planning, internal decomposition, implementation, independent review, runtime verification, recovery, and final mission acceptance.
+description: Use when the user wants a substantial development goal completed end-to-end with minimal human involvement, autonomous execution, or a long-running build/fix/verify loop. Owns broad planning, internal decomposition, implementation, independent review, execution verification, recovery, and final mission acceptance.
 ---
 
 # Autonomous Development
@@ -9,7 +9,7 @@ Turn a broad development goal into working, verified software while minimizing h
 
 **Primary optimization target:** human attention, not tokens, agent count, test count, or elapsed time.
 
-**Core principle:** Align once on the outcome, then keep working until the outcome is independently reviewed and independently verified in the real execution environment.
+**Core principle:** Align once on the outcome, then keep working until the outcome is independently reviewed and independently proved on every execution surface that matters.
 
 This is an alternative execution path to the normal `brainstorming -> writing-plans -> subagent-driven-development` flow. Do not invoke `writing-plans` for this path. The user-facing plan stays broad; detailed decomposition is internal and may change as evidence arrives.
 
@@ -119,7 +119,8 @@ Dispatch rules:
 | `code-reviewer` | `inherit` | task code quality only |
 | `re-reviewer` | `inherit` | scoped fix verification only |
 | `workstream-reviewer` | `inherit` | broad static completeness/integration only |
-| `runtime-verifier` | `inherit` | actual execution evidence only |
+| `runtime-verifier` | `inherit` | non-browser execution evidence only |
+| `browser-verifier` | `inherit` | real-browser/UI evidence only |
 | `failure-investigator` | `inherit` | root-cause diagnosis only; no product edits |
 | `mission-reviewer` | `inherit` | final whole-mission static audit only |
 
@@ -167,9 +168,11 @@ Rulings:
 - ...
 Open findings:
 - ...
-Review:
+Static review:
 - ...
 Runtime verification:
+- ...
+Browser verification:
 - ...
 ```
 
@@ -181,15 +184,15 @@ The controller does **not** micro-plan a broad workstream in its own long-lived 
 
 For each PENDING workstream:
 
-1. Freeze the current mission HEAD as `WORKSTREAM_BASE_SHA`.
+1. Freeze current mission HEAD as `WORKSTREAM_BASE_SHA`.
 2. Dispatch a fresh `workstream-planner` with `Workspace: "inherit"` and give it only:
    - Mission Goal and binding constraints
    - this broad workstream and `Done when` criteria
    - current authoritative HEAD
    - interfaces produced by completed workstreams that this one depends on
    - relevant rulings/known risks
-3. The planner inspects the real repository and returns coherent internal engineering tasks, dependencies, interface notes, and runtime handoff surfaces.
-4. If it returns a recommended reversible ruling, decide it in the controller, ledger it, and continue. Do not ask the user unless the Human Attention Policy applies.
+3. Planner inspects the real repository and returns coherent internal engineering tasks, dependencies, interface notes, and verification handoff surfaces.
+4. If it recommends a reversible ruling, decide it in the controller, ledger it, and continue. Do not ask the user unless the Human Attention Policy applies.
 5. Write the internal task map to the workstream ledger.
 
 Internal tasks are **not user-facing** and require **no user approval**. Add, remove, split, merge, or reorder them as implementation evidence changes.
@@ -210,18 +213,18 @@ fresh mission-implementer
 ```
 
 1. Confirm authoritative mission branch and record `TASK_BASE_SHA = HEAD`.
-2. Dispatch a fresh `mission-implementer` with `Workspace: "inherit"`, full task text, current workstream outcome, binding mission constraints, and relevant interfaces.
+2. Dispatch fresh `mission-implementer` with `Workspace: "inherit"`, full task text, current workstream outcome, binding mission constraints, and relevant interfaces.
 3. Implementer writes code/tests, runs appropriate checks, self-reviews, commits, and reports `TASK_BASE_SHA..TASK_HEAD_SHA`.
-4. Confirm its commit is the current mission HEAD. Never review stale/disconnected code.
+4. Confirm its commit is current mission HEAD. Never review stale/disconnected code.
 5. Dispatch `spec-reviewer` against task text and exact diff. Any spec failure is blocking.
 6. After spec PASS, dispatch `code-reviewer`. Critical and Important findings are blocking; Minor findings may be ledgered for broad/final review.
 7. Send blocking findings back to the same implementer conversation. After each committed repair, dispatch `re-reviewer` on the exact fix range.
-8. Continue until task gates pass or the Recovery Ladder changes the approach.
+8. Continue until task gates pass or Recovery Ladder changes approach.
 9. Update authoritative HEAD and ledger immediately.
 
-**Reviewers never test.** Implementer verification is useful engineering feedback, but neither implementer test claims nor review PASS replace the later independent runtime gate.
+**Reviewers never test.** Implementer checks are useful engineering feedback, but neither implementer test claims nor review PASS replace independent execution gates.
 
-A task PASS is bound to the exact HEAD reviewed. Relevant product-code changes make affected review evidence stale.
+A task PASS is bound to exact HEAD reviewed. Relevant product-code changes make affected review evidence stale.
 
 ## Phase 5: Workstream Gate
 
@@ -229,34 +232,38 @@ Internal task completion does not complete a workstream.
 
 1. Freeze `WORKSTREAM_HEAD_SHA`.
 2. Dispatch `workstream-reviewer` for static outcome completeness/integration on `WORKSTREAM_BASE_SHA..WORKSTREAM_HEAD_SHA`.
-3. If static review FAILS, create repair tasks, run implementation/review loops, and restart the workstream gate on the new HEAD.
-4. When static review PASSES, dispatch `runtime-verifier` for the same `WORKSTREAM_HEAD_SHA`, using the workstream completion criteria plus any runtime-handoff surfaces named by the planner/reviewer.
-5. If runtime verification FAILS, feed its concrete evidence into a repair task, review the repair, then restart the workstream gate on the new HEAD.
-6. If runtime verification is BLOCKED, exhaust local/environmental alternatives before applying the Human Attention Policy.
-7. Mark the workstream COMPLETE only when **static review PASS + runtime verification PASS** both refer to the same current HEAD.
+3. If static review FAILS, create repair tasks, run implementation/review loops, and restart workstream gate on new HEAD.
+4. Determine required execution gates from the workstream `Done when` criteria plus planner/reviewer handoffs:
+   - dispatch `runtime-verifier` for non-browser executable surfaces (tests/build/API/database/CLI/service flows)
+   - dispatch `browser-verifier` for **every observable frontend/UI surface**
+   - cross-layer UI work normally requires both
+5. Every verifier receives the same frozen `WORKSTREAM_HEAD_SHA`.
+6. If any verifier FAILS, feed concrete failure evidence into a repair task, review the repair, and restart all affected workstream gates on new HEAD.
+7. If a verifier is BLOCKED, exhaust local/environment alternatives before Human Attention Policy.
+8. Mark workstream COMPLETE only when **static review PASS + every required execution verifier PASS** refer to the same current HEAD.
 
-Static review and runtime verification are separate authorities. Neither may infer the other's verdict.
+Static reviewers, runtime verifier, and browser verifier are separate authorities. None may infer another's verdict.
 
-## Runtime Verification Policy
+## Execution Verification Policy
 
 Verification is selected from changed behavior, not a fixed ritual or fixed test count.
 
-| Changed surface | Required evidence |
+| Changed surface | Required independent evidence |
 |---|---|
-| Pure library/domain logic | focused tests + relevant integration/full-suite evidence |
-| Backend/API | build/tests plus actual service/API path when practical |
-| Database/schema/query | migration/query/integration evidence against disposable or approved environment |
-| CLI/tooling | invoke the real command and inspect output/exit/state |
-| Frontend/UI | **real browser verification is mandatory** |
-| Canvas/WebGL/3D viewer | browser proves meaningful rendering plus affected interaction; DOM presence alone is insufficient |
-| Cross-layer feature | end-to-end evidence across affected layers |
+| Pure library/domain logic | `runtime-verifier`: focused tests + relevant broader suite |
+| Backend/API | `runtime-verifier`: build/tests + actual service/API path when practical |
+| Database/schema/query | `runtime-verifier`: migration/query/integration execution |
+| CLI/tooling | `runtime-verifier`: real command + output/exit/state |
+| Frontend/UI | **`browser-verifier`: real browser is mandatory** |
+| Canvas/WebGL/3D viewer | **`browser-verifier`: meaningful rendering + affected interaction; DOM-only is insufficient** |
+| Cross-layer UI feature | `runtime-verifier` for non-UI layers + `browser-verifier` end-to-end |
 | Docs-only | relevant render/lint/link checks; no fake runtime gate |
 
-There is no target test count. Run as many checks and repair cycles as necessary to establish fresh evidence for the current HEAD.
+There is no target test count. Run as many checks and repair cycles as necessary to establish fresh evidence for current HEAD.
 
 ### Frontend Browser Gate
 
-For observable frontend changes, `runtime-verifier` must exercise the affected flow in a real browser before the workstream can pass.
+For observable frontend changes, `browser-verifier` must exercise the affected flow in a real browser before the workstream can pass.
 
 Relevant evidence includes:
 
@@ -265,10 +272,10 @@ Relevant evidence includes:
 - expected visible state appears
 - no new relevant console/page errors
 - relevant network requests do not unexpectedly fail
-- screenshots/artifacts capture the tested state
+- screenshots/artifacts capture tested state
 - Canvas/WebGL/3D: rendering surface is meaningfully rendered and affected interaction/state is exercised
 
-Prefer existing Playwright/Cypress/E2E harness. If none exists, the verifier may create an **ephemeral ignored** browser probe under `.superpowers/missions/<mission>/verification/`. Do not commit verification scaffolding merely to satisfy the gate.
+Prefer existing Playwright/Cypress/E2E harness. If none exists, `browser-verifier` may create an **ephemeral ignored** browser probe under `.superpowers/missions/<mission>/verification/`. Do not commit verification scaffolding merely to satisfy the gate.
 
 The built-in `/browser` workflow may be used when available, but autonomous completion must not require the user to manually invoke it when a command-line browser harness can prove the same behavior.
 
@@ -276,37 +283,39 @@ The built-in `/browser` workflow may be used when available, but autonomous comp
 
 Do not use a small arbitrary retry cap as a substitute for engineering judgment. Continue while attempts produce new evidence, narrow the failure, or materially change the approach.
 
-When a failure repeats:
+When failure repeats:
 
-1. **Normal repair:** resume the owning `mission-implementer` with exact reviewer/verifier evidence. It diagnoses and fixes, then rerun affected gates.
-2. **Fresh repair context:** if the same failure persists without a materially narrower diagnosis, stop repeating the same agent context. Dispatch a fresh `mission-implementer` on the same mission workspace with the task, current HEAD, failed evidence, and prior attempts.
-3. **Independent diagnosis:** if another repair attempt still does not produce a better causal explanation, dispatch `failure-investigator`. It may reproduce and run focused diagnostics but never edits product code. Give its root-cause report to a fresh `mission-implementer` for repair.
-4. **Re-plan:** if the diagnosed local approach is exhausted, re-dispatch `workstream-planner` against the current HEAD and ask it for a materially different internal decomposition/strategy. Record the controller ruling.
-5. **Re-verify everything affected:** after every repair, rerun affected static and runtime gates. Never carry PASS across changed code.
-6. Declare `STALLED` only when materially different strategies have failed and the latest investigation produces no new diagnostic evidence. Then ask the smallest possible user question with exact evidence and required input.
+1. **Normal repair:** resume owning `mission-implementer` with exact reviewer/verifier evidence. Diagnose and fix, then rerun affected gates.
+2. **Fresh repair context:** if same failure persists without materially narrower diagnosis, stop repeating same agent context. Dispatch fresh `mission-implementer` on same mission workspace with task, current HEAD, failed evidence, and prior attempts.
+3. **Independent diagnosis:** if another repair attempt still lacks better causal explanation, dispatch `failure-investigator`. It may reproduce/run focused diagnostics but never edits product code. Give root-cause report to fresh `mission-implementer` for repair.
+4. **Re-plan:** if diagnosed local approach is exhausted, re-dispatch `workstream-planner` against current HEAD for materially different internal decomposition/strategy. Record controller ruling.
+5. **Re-verify everything affected:** after every repair, rerun affected static and execution gates. Never carry PASS across changed code.
+6. Declare `STALLED` only when materially different strategies have failed and latest investigation produces no new diagnostic evidence. Then ask smallest possible user question with exact evidence and required input.
 
-A repeated failure is a reason to escalate the **quality of diagnosis**, not lower the gate.
+Repeated failure is a reason to escalate **diagnosis quality**, not lower the gate.
 
 ## Phase 6: Mission Gate
 
 After all workstreams are COMPLETE, verify the **original mission**, not whether a checklist is empty.
 
 1. Freeze `MISSION_HEAD_SHA`.
-2. Dispatch `mission-reviewer` on `MISSION_BASE_SHA..MISSION_HEAD_SHA` with the original Mission Brief, constraints, workstream review reports, and unresolved non-blocking risks. It performs static whole-mission completeness/integration review only.
-3. If mission review FAILS, create repair workstream/tasks, run their normal loops, and restart the mission gate on the new HEAD.
-4. When mission review PASSES, dispatch `runtime-verifier` for all Final Acceptance criteria, especially cross-workstream/end-to-end behavior, on that same `MISSION_HEAD_SHA`.
-5. If final runtime FAILS, create repair workstream/tasks and repeat static + runtime gates after changes.
-6. If final runtime is BLOCKED, exhaust local alternatives before escalating.
+2. Dispatch `mission-reviewer` on `MISSION_BASE_SHA..MISSION_HEAD_SHA` with original Mission Brief, constraints, workstream review reports, and unresolved non-blocking risks. It performs static whole-mission completeness/integration only.
+3. If mission review FAILS, create repair workstream/tasks, run normal loops, and restart mission gate on new HEAD.
+4. When mission review PASSES, dispatch the execution verifiers required by **Final Acceptance**, all on same `MISSION_HEAD_SHA`:
+   - `runtime-verifier` for non-browser end-to-end criteria
+   - `browser-verifier` for any frontend/UI end-to-end criterion
+5. If any final verifier FAILS, create repair workstream/tasks and repeat affected static + execution gates after changes.
+6. If final verifier is BLOCKED, exhaust local alternatives before escalating.
 7. Mission is COMPLETE only when:
    - every required workstream is COMPLETE
    - `mission-reviewer` = PASS on current mission HEAD
-   - final `runtime-verifier` = PASS on current mission HEAD
+   - every required final execution verifier = PASS on current mission HEAD
    - no unresolved Critical or Important finding remains
    - original user-visible goal is actually satisfied
 
 Terminal states only:
 
-- `COMPLETE` — independently reviewed and independently runtime-verified
+- `COMPLETE` — independently reviewed and independently execution-verified on every required surface
 - `BLOCKED` — Human Attention Policy stop condition genuinely prevents further progress
 
 Do not report completion percentages.
@@ -316,15 +325,15 @@ Do not report completion percentages.
 Progress updates are informational, never approval gates.
 
 Good:
-- "Backend workstream passed static review; runtime verification found an API serialization defect. Repair loop is active."
-- "Frontend code review is clean, but browser verification caught a broken selection flow. Fixing and re-running the gate."
+- "Backend workstream passed static review; API verification found a serialization defect. Repair loop is active."
+- "Frontend code review is clean, but browser verifier caught a broken selection flow. Fixing and re-running the gate."
 
 Bad:
 - "Task 7 finished. Continue?"
 - "Reviewer found two issues. Which should I fix?"
 - "Tests failed. What do you want me to do?"
 
-Continue unless a Human Attention Policy stop condition applies.
+Continue unless Human Attention Policy stop condition applies.
 
 ## Non-Negotiable Rules
 
@@ -332,17 +341,17 @@ Continue unless a Human Attention Policy stop condition applies.
 - One broad approval gate by default.
 - User-facing plans contain broad outcomes, not five-minute steps.
 - Internal decomposition is disposable controller state, not a contract with the user.
-- Delegate detailed workstream planning to a fresh planner rather than bloating controller context.
+- Delegate detailed workstream planning to fresh planner rather than bloating controller context.
 - One authoritative mission branch; no disconnected accepted task branches.
 - Only one product-code writer active at a time.
 - Fresh independent static review is required; implementer self-review never substitutes for it.
 - Reviewers do not run tests/browser/runtime checks.
-- Runtime verifier does not review or fix product code.
-- Failure investigator diagnoses but does not fix.
-- Static PASS and runtime PASS are independent and both required.
-- Every PASS is bound to the exact HEAD it verified; relevant changes invalidate it.
-- Frontend/UI behavior requires real browser evidence.
+- `runtime-verifier` executes non-browser evidence but does not review/fix product code.
+- `browser-verifier` is mandatory for observable frontend/UI behavior and does not review/fix product code.
+- `failure-investigator` diagnoses but does not fix.
+- Static PASS and all required execution PASSes are independent and all required.
+- Every PASS is bound to exact HEAD it verified; relevant changes invalidate it.
 - Failed gates trigger repair and re-verification automatically.
 - Never lower a gate because repair is expensive, slow, or token-heavy.
-- Never stop solely because a predefined retry count was reached.
+- Never stop solely because predefined retry count was reached.
 - Never claim COMPLETE while required evidence is missing or stale.
