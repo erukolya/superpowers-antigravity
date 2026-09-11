@@ -1,0 +1,11 @@
+{
+  "independent-completion-gate": {
+    "Stop": [
+      {
+        "type": "command",
+        "command": "node ./hooks/completion-gate.mjs",
+        "timeout": 1020
+      }
+    ]
+  }
+}
