@@ -11,6 +11,19 @@ const REVIEW_EFFORT = process.env.SUPERPOWERS_COMPLETION_REVIEW_EFFORT || "high"
 const REVIEW_TIMEOUT = process.env.SUPERPOWERS_COMPLETION_REVIEW_TIMEOUT || "15m";
 const PROCESS_TIMEOUT_MS = Number(process.env.SUPERPOWERS_COMPLETION_REVIEW_PROCESS_TIMEOUT_MS || 960000);
 
+const MUTATION_TYPES = new Set([
+  "CODE_ACTION",
+  "WRITE_TO_FILE",
+  "REPLACE_FILE_CONTENT",
+  "MULTI_REPLACE_FILE_CONTENT"
+]);
+
+const MUTATION_TOOLS = new Set([
+  "write_to_file",
+  "replace_file_content",
+  "multi_replace_file_content"
+]);
+
 function emit(value) {
   process.stdout.write(`${JSON.stringify(value)}\n`);
 }
@@ -42,28 +55,37 @@ function stripUserEnvelope(content) {
   return (match ? match[1] : content).trim();
 }
 
-function collectTargetFiles(value, output) {
+function inspectRecord(value, state) {
   if (!value || typeof value !== "object") return;
 
   if (Array.isArray(value)) {
-    for (const item of value) collectTargetFiles(item, output);
+    for (const item of value) inspectRecord(item, state);
     return;
   }
 
   for (const [key, child] of Object.entries(value)) {
     if (/^targetfile$/i.test(key) && typeof child === "string" && child.trim()) {
-      output.add(child.trim());
+      state.touchedFiles.add(child.trim());
+      state.hasMutation = true;
     }
-    collectTargetFiles(child, output);
+
+    if (/^(name|tool_name|toolName)$/i.test(key) && typeof child === "string" && MUTATION_TOOLS.has(child)) {
+      state.hasMutation = true;
+    }
+
+    inspectRecord(child, state);
   }
 }
 
 function readTranscript(transcriptPath) {
-  const userRequests = [];
-  const touchedFiles = new Set();
+  const state = {
+    userRequests: [],
+    touchedFiles: new Set(),
+    hasMutation: false
+  };
 
   if (!transcriptPath || !fs.existsSync(transcriptPath)) {
-    return { userRequests, touchedFiles: [] };
+    return { userRequests: [], touchedFiles: [], hasMutation: false };
   }
 
   const text = fs.readFileSync(transcriptPath, "utf8");
@@ -79,13 +101,21 @@ function readTranscript(transcriptPath) {
 
     if (record?.source === "USER_EXPLICIT" && record?.type === "USER_INPUT") {
       const request = stripUserEnvelope(record.content);
-      if (request) userRequests.push(request);
+      if (request) state.userRequests.push(request);
     }
 
-    collectTargetFiles(record, touchedFiles);
+    if (MUTATION_TYPES.has(record?.type)) {
+      state.hasMutation = true;
+    }
+
+    inspectRecord(record, state);
   }
 
-  return { userRequests, touchedFiles: [...touchedFiles] };
+  return {
+    userRequests: state.userRequests,
+    touchedFiles: [...state.touchedFiles],
+    hasMutation: state.hasMutation
+  };
 }
 
 function buildPrompt(input, transcript) {
@@ -173,6 +203,14 @@ process.stdin.on("end", () => {
     return;
   }
 
+  const transcript = readTranscript(input.transcriptPath);
+
+  // Normal questions/planning sessions should finish normally. The gate exists for completed code work.
+  if (!transcript.hasMutation) {
+    stop();
+    return;
+  }
+
   if (input.fullyIdle === false) {
     continueExecution(
       "Completion is blocked because background/asynchronous tasks are still running. Wait for them, inspect their results, then attempt completion again."
@@ -184,7 +222,6 @@ process.stdin.on("end", () => {
     ? input.workspacePaths[0]
     : process.cwd();
 
-  const transcript = readTranscript(input.transcriptPath);
   const prompt = buildPrompt(input, transcript);
 
   const schema = JSON.stringify({
