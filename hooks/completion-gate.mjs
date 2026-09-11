@@ -21,7 +21,8 @@ const MUTATION_TYPES = new Set([
 const MUTATION_TOOLS = new Set([
   "write_to_file",
   "replace_file_content",
-  "multi_replace_file_content"
+  "multi_replace_file_content",
+  "invoke_subagent"
 ]);
 
 function emit(value) {
@@ -147,7 +148,7 @@ WHAT TO VERIFY:
 3. Check every material requirement, edge case, and integration point that the task implies.
 4. Check all applicable repository instructions/rules (for example AGENTS.md, GEMINI.md, .agents/rules/**, task.md, design/plan/spec artifacts, and relevant Superpowers workflow requirements).
 5. Check for stubs, TODOs, placeholders, disabled code, fake tests, skipped tests, swallowed errors, hard-coded shortcuts, partial implementations, and claims not backed by code.
-6. Verify build/tests/browser evidence when relevant. You may run read-only verification commands or tests, but do not modify source files.
+6. Verify build/tests/browser evidence when relevant. You may run verification commands or tests, but do not modify source files.
 7. If anything material is missing, incorrect, unverified, or rule-breaking, verdict MUST be FAIL.
 8. PASS only when the task is actually complete enough to hand control back to the user.
 
@@ -243,6 +244,7 @@ process.stdin.on("end", () => {
     "--mode=plan",
     "--effort", REVIEW_EFFORT,
     "--print-timeout", REVIEW_TIMEOUT,
+    "--dangerously-skip-permissions",
     "--cwd", workspace
   ];
 
